@@ -139,15 +139,42 @@ function clauseFor(r, avg) {
     default: return ['', true];
   }
 }
-function characterPhrase(ev) {
-  const avg = dayAverages(ev); if (!avg) return headlineFor(ev);
-  const ranked = ev.breakdown.slice().sort((a, b) => factorMag(b) - factorMag(a)).filter(r => factorMag(r) > 1e-6);
-  if (!ranked.length) return headlineFor(ev);
+function combineClauses(ranked, avg) {
   const clauses = ranked.slice(0, 2).map(r => clauseFor(r, avg));
   const goods = clauses.filter(c => c[1]).map(c => c[0]); const bads = clauses.filter(c => !c[1]).map(c => c[0]);
   const join = xs => xs.join(' and ');
   const phrase = (goods.length && bads.length) ? `${join(goods)} but ${join(bads)}` : join(goods.length ? goods : bads);
   return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
+function characterPhrase(ev) {
+  const avg = dayAverages(ev); if (!avg) return headlineFor(ev);
+  const ranked = ev.breakdown.slice().sort((a, b) => factorMag(b) - factorMag(a)).filter(r => factorMag(r) > 1e-6);
+  if (!ranked.length) return headlineFor(ev);
+  return combineClauses(ranked, avg);
+}
+function componentsBreakdown(c, p) {
+  const rows = [];
+  const consider = (factor, score, weight) => {
+    if (score == null || weight <= 0) return;
+    if (CAN_HELP[factor]) rows.push({ factor, score, weight, helped: score >= 0.5 });
+    else if (score < CONFIG.breakdownSpoilerNeutralCeiling) rows.push({ factor, score, weight, helped: false });
+  };
+  consider('temperature', c.temperature, CONFIG.weightTemperature * p.importanceTemperature);
+  consider('sunSky', c.sunSky, CONFIG.weightSunSky * p.importanceSunSky);
+  consider('mugginess', c.mugginess, CONFIG.weightMugginess * p.importanceMugginess);
+  consider('precipitation', c.precipitation, CONFIG.weightPrecipitation * p.importancePrecipitation);
+  consider('wind', c.wind, CONFIG.weightWind * p.importanceWind);
+  consider('airQuality', c.airQuality, CONFIG.weightAirQuality);
+  return rows;
+}
+function nowCharacter(ev) {
+  const c = forecast.current; if (!c) return currentSky(c).text;
+  const comps = scoredNearest(ev, c.time).components;
+  const wet = precipType(c.weatherCode) !== 'none' && c.precipProb >= CONFIG.daySummaryWetHourChance;
+  const avg = { apparentF: c.apparentF, cloud: c.cloud, dewF: c.dewF, precipType: wet ? precipType(c.weatherCode) : 'none' };
+  const ranked = componentsBreakdown(comps, { ...sensibleDefault, ...profile }).sort((a, b) => factorMag(b) - factorMag(a)).filter(r => factorMag(r) > 1e-6);
+  if (!ranked.length) return currentSky(c).text;
+  return combineClauses(ranked, avg);
 }
 
 
@@ -302,11 +329,17 @@ function metricsInner(ev) {
 }
 
 function nowCard(ev) {
-  const c = forecast.current, sky = currentSky(c);
-  return el('section', { class: 'card nowcard', html:
-    `<div class="now-left"><div class="rn-head"><span class="lab" style="margin:0">Right now</span>${nowPill(ev.now, 'FOR YOU')}</div>
-       <div class="now-mainrow"><div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${sky.text}</div></div>${glyphSVG(sky.kind)}</div></div>
-     <div class="now-right"><div class="lab">How it feels — for you</div>${metricsInner(ev)}</div>` });
+  const c = forecast.current, sky = currentSky(c), now = ev.now;
+  const cls = now ? bandCls(now.displayedScore) : 'muted';
+  const ring = now
+    ? `<div class="score-row"><div class="ring-wrap">${ringSVG(now.displayedScore, false)}<div class="ring-num"><span class="s">${scoreText(now.displayedScore)}</span><span class="d">/ 10</span></div></div>
+         <div class="verdict"><div class="vw"><span class="c-${cls}">${band(now.displayedScore)}</span></div><div class="vsub">${nowCharacter(ev)}.</div></div></div>`
+    : '';
+  return el('section', { class: 'card hero', html:
+    `<div class="hero-rail"><div class="eyebrow">RIGHT NOW</div>${ring}
+       <div class="hero-divider"></div>
+       <div class="hero-stat"><span class="hs-k">Conditions</span><span class="hs-v">${Ts(c.temperatureF)} · ${sky.text} · feels ${Ts(c.apparentF)}</span></div></div>
+     <div class="now-right"><div class="now-right-head"><span class="lab" style="margin:0">How it feels — for you</span>${glyphSVG(sky.kind)}</div>${metricsInner(ev)}</div>` });
 }
 
 function metricsCard(ev, label, span = 'span4') {
