@@ -284,14 +284,19 @@ function timelineCard(ev, opts = {}) {
   return card;
 }
 
+function nowPill(now, label) {
+  if (!now) return '';
+  const cl = bandCls(now.displayedScore);
+  return `<span class="now-badge c-${cl}" style="border-color:color-mix(in srgb,var(--${cl}) 40%,transparent);background:color-mix(in srgb,var(--${cl}) 12%,transparent)"><span class="nl">${label}</span><span class="nn">${scoreText(now.displayedScore)}</span><span>${band(now.displayedScore)}</span></span>`;
+}
+
 function scoreCard(ev, opts = {}) {
-  const golden = isGolden(ev.displayedDayScore), cls = bandCls(ev.displayedDayScore), now = ev.now;
+  const golden = isGolden(ev.displayedDayScore), cls = bandCls(ev.displayedDayScore);
   const nowT = ev.isToday && forecast.current ? forecast.current.time : -Infinity;
-  const nowBadge = now ? `<span class="now-badge c-${bandCls(now.displayedScore)}" style="border-color:color-mix(in srgb,var(--${bandCls(now.displayedScore)}) 40%,transparent);background:color-mix(in srgb,var(--${bandCls(now.displayedScore)}) 12%,transparent)"><span class="nl">NOW</span><span class="nn">${scoreText(now.displayedScore)}</span><span>${band(now.displayedScore)}</span></span>` : '';
   const vw = golden ? `<span class="gold-text">Golden</span> <span class="spark">✦</span>` : `<span class="c-${cls}">${band(ev.displayedDayScore)}</span>`;
-  const eyebrow = opts.eyebrow || 'TODAY OVERALL';
+  const eyebrow = opts.eyebrow || 'TODAY · DAY SCORE';
   return el('section', { class: 'card scorecard' + (golden ? ' gold-glow' : ''), html:
-    `<div class="eyebrow-row"><span class="eyebrow ${golden ? 'gold-text' : ''}">${eyebrow}</span>${nowBadge}</div>
+    `<div class="eyebrow-row"><span class="eyebrow ${golden ? 'gold-text' : ''}">${eyebrow}</span></div>
      <div class="score-row"><div class="ring-wrap">${ringSVG(ev.displayedDayScore, golden)}<div class="ring-num"><span class="s ${golden ? 'gold-text' : ''}">${scoreText(ev.displayedDayScore)}</span><span class="d">/ 10</span></div></div>
        <div class="verdict"><div class="vw">${vw}</div><div class="vsub">${heroSubtitle(ev, nowT)}</div></div></div>` });
 }
@@ -317,10 +322,10 @@ function weekMiniCard(week) {
   return el('section', { class: 'card span2', html: `<div class="card-head"><span class="ch-t">This week</span><a href="#/week">All 7 →</a></div><div class="wk-mini">${rows}</div>` });
 }
 
-function rightNowCard() {
+function rightNowCard(ev) {
   const c = forecast.current, d = forecast.days[0];
   return el('section', { class: 'card span2 rn', html:
-    `<div><div class="lab">Right now</div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${c.conditionText}</div><div class="rn-m">Feels ${Ts(c.apparentF)} · High ${Ts(d.high)} · Low ${Ts(d.low)}</div></div>
+    `<div class="rn-main"><div class="rn-head"><span class="lab" style="margin:0">Right now</span>${nowPill(ev.now, 'FOR YOU')}</div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${c.conditionText}</div><div class="rn-m">Feels ${Ts(c.apparentF)} · High ${Ts(d.high)} · Low ${Ts(d.low)}</div></div>
      ${currentGlyph(c.weatherCode, c.isDay)}` });
 }
 
@@ -341,7 +346,7 @@ function viewToday(root) {
   if (stale) wrap.append(staleBanner());
   const grid = el('div', { class: 'hero-grid' }, [scoreCard(ev), timelineCard(ev, { isToday: true, nowTime: forecast.current && forecast.current.time, nowIndex: nowIndexFor(ev) })]);
   const week = evaluateWeekCached();
-  const dash = el('div', { class: 'dash' }, [rightNowCard(), metricsCard(ev, 'What it feels like — for you'), breakdownCard(ev), weekMiniCard(week)]);
+  const dash = el('div', { class: 'dash' }, [rightNowCard(ev), metricsCard(ev, 'What it feels like — for you'), breakdownCard(ev), weekMiniCard(week)]);
   wrap.append(stale ? el('div', { class: 'muteall' }, [grid, dash]) : el('div', {}, [grid, dash]), footer());
   root.append(wrap);
 }

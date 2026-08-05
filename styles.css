@@ -126,6 +126,8 @@ button{font-family:var(--sans);cursor:pointer}
 .dash{display:grid;grid-template-columns:repeat(6,1fr);gap:18px;margin-top:18px}
 .span2{grid-column:span 2}.span3{grid-column:span 3}.span4{grid-column:span 4}.span6{grid-column:span 6}
 .rn{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rn .rn-main{min-width:0}
+.rn-head{display:flex;align-items:center;gap:10px;margin-bottom:2px}
 .rn .rn-t{font-size:60px;font-weight:300;letter-spacing:-.03em;line-height:1}
 .rn .rn-c{font-size:16px;font-weight:700;margin-top:4px}
 .rn .rn-m{font-size:13px;color:var(--muted);margin-top:6px}
