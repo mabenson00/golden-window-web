@@ -1,5 +1,5 @@
 import { fetchForecast, geocode, roundCoord, conditionText } from './weather.js';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault } from './scoring.js';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -51,57 +51,102 @@ const bandClsComfort = comfort => bandCls(comfort / 10);
 const T = f => units === 'C' ? Math.round((f - 32) * 5 / 9) : Math.round(f);
 const Ts = f => `${T(f)}°`;
 
-function scoreCls(s) { if (s >= 0.66) return 'good'; if (s >= 0.45) return 'decent'; if (s >= 0.28) return 'poor'; return 'bad'; }
-function tempWord(s, apparentF, ideal) {
-  if (s >= 0.82) return 'Near ideal'; if (s >= 0.6) return 'Comfortable';
-  if (s >= 0.38) return apparentF > ideal ? 'A bit warm' : 'A bit cool';
-  if (s >= 0.22) return apparentF > ideal ? 'Too warm' : 'Too cool';
-  return apparentF > ideal ? 'Hot' : 'Cold';
+const compCls = c => (c == null ? 'muted' : bandCls(c * 10));
+function mvTemp(c) { if (c == null) return ['—', 'muted']; const col = compCls(c); if (c >= 0.8) return ['Near ideal', col]; if (c >= 0.6) return ['Comfortable', col]; if (c >= 0.35) return ['A bit off', col]; return ['Uncomfortable', col]; }
+function mvClouds(frac, c) { const col = compCls(c); let t; if (frac < 0.20) t = 'Clear'; else if (frac < 0.50) t = 'Partly cloudy'; else if (frac < 0.80) t = 'Cloudy'; else t = 'Overcast'; return [t, col]; }
+function mvMug(c) { if (c == null) return ['—', 'muted']; const col = compCls(c); if (c >= 0.75) return ['Comfortable', col]; if (c >= 0.5) return ['Slightly humid', col]; if (c >= 0.3) return ['Muggy', col]; return ['Oppressive', col]; }
+function mvRain(prob, c) { if (prob <= 0.005) return ['None', 'muted']; const col = compCls(c); if (prob < 0.2) return ['Unlikely', col]; if (prob < 0.5) return ['Possible', col]; return ['Likely', col]; }
+function mvPrecip(type, prob, c) { if (type === 'none' || prob <= 0.005) return ['None', 'muted']; const col = compCls(c); const noun = type === 'snow' ? 'Snow' : ((type === 'mixed' || type === 'freezing') ? 'Wintry mix' : 'Rain'); const lk = prob < 0.2 ? 'unlikely' : (prob < 0.5 ? 'possible' : 'likely'); return [`${noun} ${lk}`, col]; }
+function mvWind(speed, c) { if (c == null) return ['—', 'muted']; const col = compCls(c); if (c >= 0.8) return ['Comfortable', col]; if (c >= 0.55) return ['Breezy', col]; if (c >= 0.3) return ['Windy', col]; return ['Strong wind', col]; }
+function hourVerdict(displayed) { if (displayed >= 8) return 'A great hour to be outside'; if (displayed >= 7) return 'A good hour to be outside'; if (displayed >= 5) return 'A decent hour to be outside'; if (displayed >= 3) return 'A poor hour to be outside'; return 'Not a good hour to be outside'; }
+
+const CAN_HELP = { temperature: true, sunSky: true, mugginess: true, precipitation: false, wind: false, airQuality: false };
+function factorEffect(r) { const neutral = CAN_HELP[r.factor] ? 0.5 : 1.0; return r.weight * (r.score - neutral); }
+function factorMag(r) { return Math.abs(factorEffect(r)); }
+function factorTag(r) { const neutral = CAN_HELP[r.factor] ? 0.5 : 1.0; const norm = Math.min(1, Math.abs(r.score - neutral) / neutral); const intensity = norm >= 0.6 ? ' a lot' : (norm < 0.3 ? ' a little' : ''); return (r.helped ? 'helped' : 'held it back') + intensity; }
+
+function skyKind(code, isDay) {
+  if ([95, 96, 99].includes(code)) return 'storm';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
+  if ([45, 48, 3].includes(code)) return 'cloud';
+  if (code === 2) return isDay ? 'partly' : 'cloud';
+  return isDay ? 'sun' : 'moon';
 }
-function cloudWord(pct) { if (pct < 15) return 'Clear'; if (pct < 35) return 'Mostly clear'; if (pct < 65) return 'Partly cloudy'; if (pct < 85) return 'Cloudy'; return 'Overcast'; }
-function sunSkyWord(s) { if (s >= 0.8) return 'Great light'; if (s >= 0.55) return 'Good light'; if (s >= 0.35) return 'Some sun'; return 'Dim'; }
-function humidWord(s, dewF) { if (s >= 0.8) return dewF < 55 ? 'Dry' : 'Comfortable'; if (s >= 0.6) return 'Comfortable'; if (s >= 0.42) return 'A little sticky'; if (s >= 0.25) return 'Humid'; return 'Muggy'; }
-function rainWord(prob, type) { if (type === 'none' || prob < 10) return 'None'; if (prob < 35) return 'Slight'; if (prob < 65) return 'Chance'; return 'Likely'; }
-function hourVerdict(comfort) { if (comfort >= 90) return 'Peak — ideal for you'; if (comfort >= 80) return 'Excellent right now'; if (comfort >= 70) return 'A good time to be out'; if (comfort >= 50) return 'Okay, not the best'; if (comfort >= 30) return 'Marginal'; return 'Not your time'; }
+const CLOUD_G = '<g fill="var(--faint)"><circle cx="24" cy="27" r="10"/><circle cx="38" cy="23" r="12"/><rect x="20" y="26" width="27" height="12" rx="6"/></g>';
+function currentGlyph(code, isDay) {
+  const kind = skyKind(code, isDay);
+  const body = {
+    sun: '<circle cx="32" cy="30" r="12" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="3" stroke-linecap="round"><path d="M32 8v6M32 46v6M8 30h6M50 30h6M15 13l4 4M45 43l4 4M49 13l-4 4M19 43l-4 4"/></g>',
+    moon: '<path d="M46 38A16 16 0 1126 14a13 13 0 0020 24z" fill="var(--brand-gold)"/>',
+    cloud: '<g fill="var(--faint)"><circle cx="24" cy="34" r="11"/><circle cx="39" cy="30" r="13"/><rect x="20" y="33" width="30" height="13" rx="6.5"/></g>',
+    partly: '<circle cx="27" cy="25" r="9" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="2.6" stroke-linecap="round"><path d="M27 9v5M11 25h5M15 13l3.5 3.5M39 13l-3.5 3.5"/></g><g fill="var(--faint)"><circle cx="33" cy="40" r="10"/><circle cx="45" cy="37" r="12"/><rect x="29" y="40" width="24" height="11" rx="5.5"/></g>',
+    rain: CLOUD_G + '<g stroke="var(--brand-sky)" stroke-width="3.2" stroke-linecap="round"><path d="M25 44l-2.5 7M35 44l-2.5 7M45 44l-2.5 7"/></g>',
+    snow: CLOUD_G + '<g fill="var(--brand-sky)"><circle cx="25" cy="48" r="2.4"/><circle cx="35" cy="50" r="2.4"/><circle cx="45" cy="48" r="2.4"/></g>',
+    storm: CLOUD_G + '<path d="M35 42l-9 11h7l-3 8 11-13h-7l3-6z" fill="var(--brand-gold)"/>',
+  }[kind];
+  return `<svg class="sun" viewBox="0 0 64 64" fill="none">${body}</svg>`;
+}
 
-const SKY = {
-  sunny: { emoji: '☀️', adj: 'Bright and clear', short: 'Clear skies' },
-  partlyCloudy: { emoji: '⛅️', adj: 'Sun and clouds mixing', short: 'Some clouds' },
-  cloudy: { emoji: '☁️', adj: 'Mostly cloudy', short: 'Overcast' },
-  rainy: { emoji: '🌧️', adj: 'Wet much of the day', short: 'Showers likely' },
-  snowy: { emoji: '❄️', adj: 'Snow around', short: 'Snow' },
-  wintryMix: { emoji: '🌨️', adj: 'A wintry mix', short: 'Wintry mix' },
-};
-const sky = k => SKY[k] || SKY.cloudy;
+const DAY_SKY_TEXT = { sunny: 'Sunny', partlyCloudy: 'Partly cloudy', cloudy: 'Cloudy', rainy: 'Rainy', snowy: 'Snowy', wintryMix: 'Wintry mix' };
+const DAY_SKY_EMOJI = { sunny: '☀️', partlyCloudy: '⛅️', cloudy: '☁️', rainy: '🌧️', snowy: '❄️', wintryMix: '🌨️' };
+const skyText = k => DAY_SKY_TEXT[k] || 'Cloudy';
+const skyEmoji = k => DAY_SKY_EMOJI[k] || '☁️';
 
-const VERDICT_WORD = { golden: 'Golden', great: 'Great day', good: 'Good day', decent: 'Decent day', poor: 'Poor day', bad: 'Bad day' };
-const FEEL_CLAUSE = { golden: 'a rare one for how you like it', great: 'close to perfect for you', good: 'a good one to get outside', decent: 'fine in patches', poor: 'a tough one out there', bad: 'not your kind of day' };
+const rangeApp = w => `${fmtLong(w.startTime)}–${fmtLong(w.endTime)}`;
+function windowQualityPhrase(w) { const b = band(w.averageComfort / 10); if (b === 'Golden') return 'Golden conditions'; if (b === 'Poor' || b === 'Bad') return 'The least uncomfortable part of the day'; return `${b} conditions`; }
+function noWindowPhrase(f) { return { temperature: 'Uncomfortable temperatures much of the day', mugginess: 'Muggy for much of the day', precipitation: 'Wet for much of the day', sunSky: 'Grey much of the day', wind: 'Windy much of the day', airQuality: 'Poor air much of the day' }[f] || 'No standout window'; }
+function limitingFactor(ev) { const ranked = ev.breakdown.slice().sort((a, b) => factorMag(b) - factorMag(a)); const drag = ranked.find(r => !r.helped); return drag ? drag.factor : null; }
+function headlineFor(ev) { const w = ev.bestWindow; if (!w) return noWindowPhrase(limitingFactor(ev)); if (w.isAllDay) return 'Good to be outside all day'; return `Best window ${rangeApp(w)}`; }
+function bestTimeLine(ev, nowT) { const w = ev.bestWindow; if (w) { if (w.isAllDay) return { label: 'Best time to be outside', text: 'All day' }; if (w.endTime > nowT) return { label: 'Best window', text: rangeApp(w) }; } return null; }
+function heroSubtitle(ev, nowT) { const l = bestTimeLine(ev, nowT); return l ? `${l.label} ${l.text}` : headlineFor(ev); }
+function windowText(ev) { const w = ev.bestWindow; if (!w) return 'No good window'; if (w.isAllDay) return 'All day'; return rangeApp(w); }
 
 function nearestRaw(rawHours, t) { let b = rawHours[0]; for (const h of rawHours) if (Math.abs(h.time - t) < Math.abs(b.time - t)) b = h; return b; }
+function scoredNearest(ev, t) { let b = ev.hourly[0]; for (const h of ev.hourly) if (Math.abs(h.time - t) < Math.abs(b.time - t)) b = h; return b; }
 
-function dayMetrics(ev) {
-  const raw = ev.rawHours.filter(h => { const lh = localHour(h.time); return lh >= 7 && lh < 21; });
-  const pool = raw.length ? raw : ev.rawHours;
-  const usable = ev.hourly.filter(h => h.isInOutdoorBand && h.isSafe);
-  const cpool = usable.length ? usable : ev.hourly;
-  const avg = (arr, f) => arr.reduce((a, x) => a + f(x), 0) / (arr.length || 1);
-  const comp = k => avg(cpool, h => h.components[k] ?? 0);
-  const apparent = avg(pool, h => h.apparentF);
-  const cloudPct = Math.round(avg(pool, h => h.cloud) * 100);
-  const humPct = Math.round(avg(pool, h => h.humidity) * 100);
-  const dew = avg(pool, h => h.dewF);
-  const rainProb = Math.round(Math.max(0, ...pool.map(h => h.precipProb)) * 100);
-  const rainType = ev.daySky === 'snowy' ? 'snow' : ((ev.daySky === 'rainy' || ev.daySky === 'wintryMix' || rainProb >= 10) ? 'rain' : 'none');
-  const cTemp = comp('temperature'), cSun = comp('sunSky'), cMug = comp('mugginess'), cRain = comp('precipitation');
+function metricRow(ev) {
+  let raw, comps;
+  if (ev.isToday && forecast.current) { raw = forecast.current; comps = scoredNearest(ev, forecast.current.time).components; }
+  else { const noonT = ev.rawHours.reduce((best, h) => Math.abs(localHour(h.time) - 13) < Math.abs(localHour(best.time) - 13) ? h : best, ev.rawHours[0]).time; raw = nearestRaw(ev.rawHours, noonT); comps = scoredNearest(ev, noonT).components; }
+  const mk = (k, v, verdict) => ({ k, v, d: verdict[0], cls: verdict[1] });
   return [
-    { k: 'Temp', v: Ts(apparent), d: tempWord(cTemp, apparent, profile.idealFeelsLikeF), cls: scoreCls(cTemp) },
-    { k: 'Clouds', v: `${cloudPct}%`, d: cloudWord(cloudPct), cls: scoreCls(cSun) },
-    { k: 'Humidity', v: `${humPct}%`, d: humidWord(cMug, dew), cls: scoreCls(cMug) },
-    { k: 'Rain', v: `${rainProb}%`, d: rainWord(rainProb, rainType), cls: rainType === 'none' || rainProb < 10 ? 'muted' : scoreCls(cRain) },
+    mk('Feels like', Ts(raw.apparentF), mvTemp(comps.temperature)),
+    mk('Clouds', `${Math.round(raw.cloud * 100)}%`, mvClouds(raw.cloud, comps.sunSky)),
+    mk('Dew point', Ts(raw.dewF), mvMug(comps.mugginess)),
+    mk('Rain', `${Math.round(raw.precipProb * 100)}%`, mvRain(raw.precipProb, comps.precipitation)),
   ];
 }
 
-function verdictSub(ev) { return `${sky(ev.daySky).adj} — ${FEEL_CLAUSE[bandCls(ev.displayedDayScore)]}.`; }
+function dayAverages(ev) {
+  const dl = ev.rawHours.filter(h => h.isDay); const pool = dl.length ? dl : ev.rawHours; if (!pool.length) return null;
+  const n = pool.length;
+  const wet = pool.filter(h => precipType(h.weatherCode) !== 'none' && h.precipProb >= CONFIG.daySummaryWetHourChance);
+  let type = 'none';
+  if (wet.length) { const hasSnow = wet.some(h => precipType(h.weatherCode) === 'snow'); const hasRain = wet.some(h => precipType(h.weatherCode) === 'rain'); type = (hasSnow && !hasRain) ? 'snow' : 'rain'; }
+  return { apparentF: pool.reduce((a, h) => a + h.apparentF, 0) / n, cloud: pool.reduce((a, h) => a + h.cloud, 0) / n, dewF: pool.reduce((a, h) => a + h.dewF, 0) / n, precipType: type };
+}
+function clauseFor(r, avg) {
+  switch (r.factor) {
+    case 'temperature': if (r.helped) return ['comfortable temps', true]; if (avg.apparentF >= profile.idealFeelsLikeF) return [avg.apparentF - profile.idealFeelsLikeF > 12 ? 'too hot' : 'a bit warm', false]; return [profile.idealFeelsLikeF - avg.apparentF > 12 ? 'too cold' : 'a bit cool', false];
+    case 'sunSky': { const word = avg.cloud < CONFIG.daySummarySunnyCloudCeiling ? 'sunny' : (avg.cloud >= CONFIG.daySummaryCloudyCloudFloor ? 'cloudy' : 'hazy sun'); return [word, r.helped]; }
+    case 'mugginess': if (r.helped) return ['dry air', true]; return [avg.dewF >= 70 ? 'muggy' : 'humid', false];
+    case 'precipitation': return [avg.precipType === 'snow' ? 'snowy' : 'rainy', r.helped];
+    case 'wind': return [r.helped ? 'calm' : 'windy', r.helped];
+    case 'airQuality': return [r.helped ? 'clean air' : 'poor air', r.helped];
+    default: return ['', true];
+  }
+}
+function characterPhrase(ev) {
+  const avg = dayAverages(ev); if (!avg) return headlineFor(ev);
+  const ranked = ev.breakdown.slice().sort((a, b) => factorMag(b) - factorMag(a)).filter(r => factorMag(r) > 1e-6);
+  if (!ranked.length) return headlineFor(ev);
+  const clauses = ranked.slice(0, 2).map(r => clauseFor(r, avg));
+  const goods = clauses.filter(c => c[1]).map(c => c[0]); const bads = clauses.filter(c => !c[1]).map(c => c[0]);
+  const join = xs => xs.join(' and ');
+  const phrase = (goods.length && bads.length) ? `${join(goods)} but ${join(bads)}` : join(goods.length ? goods : bads);
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
 
 function applyAppearance() {
   document.documentElement.classList.remove('light', 'dark');
@@ -114,8 +159,8 @@ function effectiveDark() {
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-const MI = { Temp: 'M14 14.8V5a2 2 0 10-4 0v9.8a4 4 0 104 0z', Clouds: 'M7 18a4 4 0 010-8 5 5 0 019.6-1.6A3.5 3.5 0 1117 18H7z', Humidity: 'M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z', Rain: 'M6 13a6 6 0 0111.7-2A4 4 0 1117 19H7' };
-const metricIcon = k => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${MI[k]}"/></svg>`;
+const MI = { 'Feels like': 'M14 14.8V5a2 2 0 10-4 0v9.8a4 4 0 104 0z', Clouds: 'M7 18a4 4 0 010-8 5 5 0 019.6-1.6A3.5 3.5 0 1117 18H7z', 'Dew point': 'M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z', Rain: 'M6 13a6 6 0 0111.7-2A4 4 0 1117 19H7' };
+const metricIcon = k => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${MI[k] || MI.Clouds}"/></svg>`;
 
 function ringSVG(displayed, golden) {
   const r = 54, circ = 2 * Math.PI * r, frac = Math.max(0, Math.min(1, displayed / 10));
@@ -174,31 +219,31 @@ function drawTimeline(ev, opts = {}) {
 
 function hourDetailHTML(ev, s) {
   const raw = nearestRaw(ev.rawHours, s.time), c = s.components, cl = bandClsComfort(s.comfort);
-  const cloudPct = Math.round(raw.cloud * 100), humPct = Math.round(raw.humidity * 100), rainP = Math.round(raw.precipProb * 100);
-  const type = ev.daySky === 'snowy' ? 'snow' : (rainP >= 10 ? 'rain' : 'none');
+  const type = precipType(raw.weatherCode), isSnow = type === 'snow';
   const isNow = forecast.current && Math.abs(s.time - forecast.current.time) < 30 * 60000;
+  const mk = (k, v, verdict) => ({ k, v, d: verdict[0], cls: verdict[1] });
   const m = [
-    { k: 'Feels like', v: Ts(s.apparentF), d: tempWord(c.temperature, s.apparentF, profile.idealFeelsLikeF), cls: scoreCls(c.temperature) },
-    { k: 'Sun & sky', v: cloudWord(cloudPct), d: sunSkyWord(c.sunSky), cls: scoreCls(c.sunSky) },
-    { k: 'Humidity', v: `${humPct}%`, d: humidWord(c.mugginess, raw.dewF), cls: scoreCls(c.mugginess) },
-    { k: 'Rain', v: `${rainP}%`, d: rainWord(rainP, type), cls: type === 'none' || rainP < 10 ? 'muted' : scoreCls(c.precipitation) },
+    mk('Feels like', Ts(s.apparentF), mvTemp(c.temperature)),
+    mk('Sun & sky', `${Math.round(raw.cloud * 100)}% cloud`, mvClouds(raw.cloud, c.sunSky)),
+    mk('Humidity', `${Ts(raw.dewF)} dew pt`, mvMug(c.mugginess)),
+    mk(isSnow ? 'Snow' : 'Rain', `${Math.round(raw.precipProb * 100)}%`, mvPrecip(type, raw.precipProb, c.precipitation)),
   ];
   return `<div class="hp-top"><span class="hp-t">${fmtClock(s.time)}</span><span class="hp-s c-${cl}">${scoreText(s.comfort / 10)} · ${band(s.comfort / 10)}</span><button class="hp-close" aria-label="Close">×</button></div>
-    <div class="hp-verdict">${hourVerdict(s.comfort)}${isNow ? ' · right now' : ''}.</div>
+    <div class="hp-verdict">${hourVerdict(s.comfort / 10)}${isNow ? ' · right now' : ''}.</div>
     <div class="hp-metrics">${m.map(x => `<div class="hm"><div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d c-${x.cls}">${x.d}</div></div>`).join('')}</div>`;
 }
 
 function tooltipHTML(ev, s) {
   const cl = bandClsComfort(s.comfort), isNow = forecast.current && Math.abs(s.time - forecast.current.time) < 30 * 60000;
-  return `<div class="tt">${fmtClock(s.time)}${isNow ? ' · now' : ''}</div><div class="tr"><span>${s.conditionText}</span><b>${Ts(s.apparentF)}</b></div><div class="tr"><span>Your score</span><b>${scoreText(s.comfort / 10)}</b></div><div class="flag c-${cl}">${hourVerdict(s.comfort)}</div>`;
+  return `<div class="tt">${fmtClock(s.time)}${isNow ? ' · now' : ''}</div><div class="tr"><span>Feels</span><b>${Ts(s.apparentF)}</b></div><div class="tr"><span>Your score</span><b>${scoreText(s.comfort / 10)} · ${band(s.comfort / 10)}</b></div><div class="flag c-${cl}">${hourVerdict(s.comfort / 10)}</div>`;
 }
 
 function timelineCard(ev, opts = {}) {
   const tl = drawTimeline(ev, opts);
   const w = ev.bestWindow, golden = w && bandClsComfort(w.averageComfort) === 'golden', wcls = w ? bandClsComfort(w.averageComfort) : 'muted';
   const tag = w
-    ? `<div class="tl-window-tag win-sel" style="border-color:var(--brand-gold)"><div class="rng ${golden ? 'gold-text' : 'c-' + wcls}">${rangeLong(w)}</div><div class="phr ${golden ? 'gold-text' : 'c-' + wcls}">${golden ? 'Golden conditions ✦' : band(w.averageComfort / 10) + ' conditions'}</div></div>`
-    : `<div class="tl-window-tag" style="border-color:var(--hair)"><div class="rng c-muted">No standout window</div><div class="phr c-muted">Nothing clearly best today</div></div>`;
+    ? `<div class="tl-window-tag win-sel" style="border-color:var(--brand-gold)"><div class="rng ${golden ? 'gold-text' : 'c-' + wcls}">${rangeApp(w)}</div><div class="phr ${golden ? 'gold-text' : 'c-' + wcls}">${windowQualityPhrase(w)}</div></div>`
+    : `<div class="tl-window-tag" style="border-color:var(--hair)"><div class="rng c-muted">No good window</div><div class="phr c-muted">${headlineFor(ev)}</div></div>`;
 
   const wrap = el('div', { class: 'tl-wrap', tabindex: '0', role: 'slider', 'aria-label': 'Hourly comfort timeline' });
   const tip = el('div', { class: 'tip' });
@@ -241,38 +286,34 @@ function timelineCard(ev, opts = {}) {
 
 function scoreCard(ev, opts = {}) {
   const golden = isGolden(ev.displayedDayScore), cls = bandCls(ev.displayedDayScore), now = ev.now;
+  const nowT = ev.isToday && forecast.current ? forecast.current.time : -Infinity;
   const nowBadge = now ? `<span class="now-badge c-${bandCls(now.displayedScore)}" style="border-color:color-mix(in srgb,var(--${bandCls(now.displayedScore)}) 40%,transparent);background:color-mix(in srgb,var(--${bandCls(now.displayedScore)}) 12%,transparent)"><span class="nl">NOW</span><span class="nn">${scoreText(now.displayedScore)}</span><span>${band(now.displayedScore)}</span></span>` : '';
-  const vw = golden ? `<span class="gold-text">Golden</span> <span class="spark">✦</span>` : `<span class="c-${cls}">${VERDICT_WORD[cls]}</span>`;
-  const w = ev.bestWindow, bestCls = w ? bandClsComfort(w.averageComfort) : cls;
-  const bestLine = w
-    ? `${golden && bestCls === 'golden' ? 'Golden window' : 'Best time'} <span class="rng ${bestCls === 'golden' ? 'gold-text' : 'c-' + bestCls}">${rangeLong(w)}</span>`
-    : `<span class="c-muted">No standout window ${opts.eyebrow && !now ? 'this day' : 'today'}</span>`;
-  const eyebrow = golden && !now ? 'Your Golden Window' : (opts.eyebrow || 'Today · your day score');
+  const vw = golden ? `<span class="gold-text">Golden</span> <span class="spark">✦</span>` : `<span class="c-${cls}">${band(ev.displayedDayScore)}</span>`;
+  const eyebrow = opts.eyebrow || 'TODAY OVERALL';
   return el('section', { class: 'card scorecard' + (golden ? ' gold-glow' : ''), html:
     `<div class="eyebrow-row"><span class="eyebrow ${golden ? 'gold-text' : ''}">${eyebrow}</span>${nowBadge}</div>
      <div class="score-row"><div class="ring-wrap">${ringSVG(ev.displayedDayScore, golden)}<div class="ring-num"><span class="s ${golden ? 'gold-text' : ''}">${scoreText(ev.displayedDayScore)}</span><span class="d">/ 10</span></div></div>
-       <div class="verdict"><div class="vw">${vw}</div><div class="vsub">${verdictSub(ev)}</div></div></div>
-     <div class="besttime">${bestLine}</div>` });
+       <div class="verdict"><div class="vw">${vw}</div><div class="vsub">${heroSubtitle(ev, nowT)}</div></div></div>` });
 }
 
 function metricsCard(ev, label) {
   return el('section', { class: 'card span4', html:
-    `<div class="lab">${label}</div><div class="metrics">${dayMetrics(ev).map(x => `<div class="metric">${metricIcon(x.k)}<div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d c-${x.cls}">${x.d}</div></div>`).join('')}</div>` });
+    `<div class="lab">${label}</div><div class="metrics">${metricRow(ev).map(x => `<div class="metric">${metricIcon(x.k)}<div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d c-${x.cls}">${x.d}</div></div>`).join('')}</div>` });
 }
 
 function breakdownCard(ev) {
-  const rows = ev.breakdown.filter(r => r.helped || r.score < 0.9).slice(0, 4);
-  const verb = r => r.helped ? (r.magnitude > 0.06 ? 'helped a lot' : 'helped') : (r.magnitude > 0.06 ? 'held it back' : 'a minor drag');
-  const body = rows.length ? rows.map(r => { const cls = r.helped ? 'good' : 'poor'; return `<div class="brk-row"><div class="brk-head"><span class="brk-l">${r.label}</span><span class="brk-v c-${cls}">${verb(r)}</span></div><div class="brk-bar"><div class="brk-fill fill-${cls}" style="width:${Math.round(Math.max(8, Math.min(100, r.score * 100)))}%"></div></div></div>`; }).join('')
-    : `<div class="c-muted" style="font-size:14px">A balanced day — nothing stands out either way.</div>`;
-  return el('section', { class: 'card span4', html: `<div class="card-head"><span class="ch-t">What shapes the day</span></div><div class="brk">${body}</div>` });
+  const rows = ev.breakdown.slice().sort((a, b) => factorMag(b) - factorMag(a));
+  const maxMag = Math.max(1e-6, ...rows.map(factorMag));
+  const body = rows.length ? rows.map(r => { const cls = r.helped ? 'good' : 'poor'; return `<div class="brk-row"><div class="brk-head"><span class="brk-l">${r.label}</span><span class="brk-v c-${cls}">${factorTag(r)}</span></div><div class="brk-bar"><div class="brk-fill fill-${cls}" style="width:${Math.round(Math.max(3, Math.min(100, factorMag(r) / maxMag * 100)))}%"></div></div></div>`; }).join('')
+    : `<div class="c-muted" style="font-size:14px">Nothing stands out either way today.</div>`;
+  return el('section', { class: 'card span4', html: `<div class="card-head"><span class="ch-t">What helped, what held it back</span></div><div class="brk">${body}</div>` });
 }
 
 function weekdayName(ev) { return ev.isToday ? 'Today' : new Date(ev.rawHours[0].time).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }); }
 
 function weekMiniCard(week) {
   const rows = week.slice(0, 4).map(d => { const cls = bandCls(d.displayedDayScore), g = isGolden(d.displayedDayScore);
-    return `<a href="#/week/${d.index}"><span class="d">${weekdayName(d)}</span><span class="b ${g ? 'gold-badge' : 'bg-' + cls}">${scoreText(d.displayedDayScore)}${g ? ' <span class="spark">✦</span>' : ''}</span><span class="w">${sky(d.daySky).short}</span><span class="hl">${T(d.high)}/${T(d.low)}</span></a>`; }).join('');
+    return `<a href="#/week/${d.index}"><span class="d">${weekdayName(d)}</span><span class="b ${g ? 'gold-badge' : 'bg-' + cls}">${scoreText(d.displayedDayScore)}${g ? ' <span class="spark">✦</span>' : ''}</span><span class="w">${windowText(d)}</span><span class="hl">${T(d.high)}/${T(d.low)}</span></a>`; }).join('');
   return el('section', { class: 'card span2', html: `<div class="card-head"><span class="ch-t">This week</span><a href="#/week">All 7 →</a></div><div class="wk-mini">${rows}</div>` });
 }
 
@@ -280,7 +321,7 @@ function rightNowCard() {
   const c = forecast.current, d = forecast.days[0];
   return el('section', { class: 'card span2 rn', html:
     `<div><div class="lab">Right now</div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${c.conditionText}</div><div class="rn-m">Feels ${Ts(c.apparentF)} · High ${Ts(d.high)} · Low ${Ts(d.low)}</div></div>
-     <svg class="sun" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="30" r="12" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="3" stroke-linecap="round"><path d="M32 8v6M32 46v6M8 30h6M50 30h6M15 13l4 4M45 43l4 4M49 13l-4 4M19 43l-4 4"/></g></svg>` });
+     ${currentGlyph(c.weatherCode, c.isDay)}` });
 }
 
 function nowIndexFor(ev) {
@@ -300,7 +341,7 @@ function viewToday(root) {
   if (stale) wrap.append(staleBanner());
   const grid = el('div', { class: 'hero-grid' }, [scoreCard(ev), timelineCard(ev, { isToday: true, nowTime: forecast.current && forecast.current.time, nowIndex: nowIndexFor(ev) })]);
   const week = evaluateWeekCached();
-  const dash = el('div', { class: 'dash' }, [rightNowCard(), metricsCard(ev, 'What today feels like — for you'), breakdownCard(ev), weekMiniCard(week)]);
+  const dash = el('div', { class: 'dash' }, [rightNowCard(), metricsCard(ev, 'What it feels like — for you'), breakdownCard(ev), weekMiniCard(week)]);
   wrap.append(stale ? el('div', { class: 'muteall' }, [grid, dash]) : el('div', {}, [grid, dash]), footer());
   root.append(wrap);
 }
@@ -313,12 +354,11 @@ function viewWeek(root) {
   const grid = el('div', { class: 'week7' });
   week.forEach(d => {
     const cls = bandCls(d.displayedDayScore), g = isGolden(d.displayedDayScore);
-    const win = d.bestWindow ? rangeShort(d.bestWindow) : 'No good window';
     grid.append(el('a', { href: `#/week/${d.index}`, class: 'wday' + (g ? ' sel gold-glow' : ''), html:
-      `<div class="wn">${weekdayName(d)}</div><div class="wsky">${sky(d.daySky).emoji}</div>
+      `<div class="wn">${weekdayName(d)}</div><div class="wsky">${skyEmoji(d.daySky)}</div>
        <div class="wbadge ${g ? 'gold-badge' : 'bg-' + cls}">${scoreText(d.displayedDayScore)}${g ? ' <span class="spark">✦</span>' : ''}</div>
-       <div class="wband ${g ? 'gold-text' : 'c-' + cls}">${g ? 'Golden' : band(d.displayedDayScore)}</div>
-       <div class="wwin">${win}</div><div class="wchar">${sky(d.daySky).short}</div><div class="whl">${T(d.high)}° / ${T(d.low)}°</div>` }));
+       <div class="wband ${g ? 'gold-text' : 'c-' + cls}">${band(d.displayedDayScore)}</div>
+       <div class="wwin">${windowText(d)}</div><div class="wchar">${characterPhrase(d)}</div><div class="whl">${T(d.high)}° / ${T(d.low)}°</div>` }));
   });
   wrap.append(grid, el('div', { class: 'tl-hint', style: 'text-align:left;margin-top:16px' }, ['Click any day to open its full detail. A day with nothing good honestly says “No good window.”']), footer());
   root.append(wrap);
@@ -330,8 +370,8 @@ function viewDay(root, i) {
   const name = i === 0 ? 'Today' : new Date(ev.rawHours[0].time).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
   const wrap = el('div', { class: 'wrap' });
   wrap.append(el('div', { class: 'crumb', html: `<a href="#/week">← Week</a> · ${name}` }));
-  const grid = el('div', { class: 'hero-grid' }, [scoreCard(ev, { eyebrow: `${name} · day score` }), timelineCard(ev, { nowTime: i === 0 && forecast.current ? forecast.current.time : null, nowIndex: i === 0 ? nowIndexFor(ev) : null })]);
-  const dash = el('div', { class: 'dash' }, [metricsCard(ev, `What ${name} feels like — for you`), el('section', { class: 'card span2', html: `<div class="lab">Day character</div><div style="font-size:14px;line-height:1.6;color:var(--muted)">${sky(ev.daySky).adj} — ${FEEL_CLAUSE[bandCls(ev.displayedDayScore)]}.</div>` })]);
+  const grid = el('div', { class: 'hero-grid' }, [scoreCard(ev, { eyebrow: `${name.toUpperCase()} · DAY SCORE` }), timelineCard(ev, { nowTime: i === 0 && forecast.current ? forecast.current.time : null, nowIndex: i === 0 ? nowIndexFor(ev) : null })]);
+  const dash = el('div', { class: 'dash' }, [metricsCard(ev, `What ${name} feels like — for you`), el('section', { class: 'card span2', html: `<div class="lab">Day character</div><div style="font-size:15px;line-height:1.6;color:var(--muted)">${characterPhrase(ev)}. ${skyText(ev.daySky)}, high ${T(ev.high)}° / low ${T(ev.low)}°.</div>` })]);
   wrap.append(grid, dash, footer());
   root.append(wrap);
 }
