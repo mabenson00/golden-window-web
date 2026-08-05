@@ -329,7 +329,7 @@ function metricsInner(ev) {
 }
 
 function nowCard(ev) {
-  const c = forecast.current, sky = currentSky(c), now = ev.now;
+  const now = ev.now;
   const cls = now ? bandCls(now.displayedScore) : 'muted';
   const ring = now
     ? `<div class="score-row"><div class="ring-wrap">${ringSVG(now.displayedScore, false)}<div class="ring-num"><span class="s">${scoreText(now.displayedScore)}</span><span class="d">/ 10</span></div></div>
@@ -337,7 +337,7 @@ function nowCard(ev) {
     : '';
   return el('section', { class: 'card hero', html:
     `<div class="hero-rail"><div class="eyebrow">RIGHT NOW</div>${ring}</div>
-     <div class="now-right"><div class="now-right-head"><span class="lab" style="margin:0">How it feels — for you</span>${glyphSVG(sky.kind)}</div>${metricsInner(ev)}</div>` });
+     <div class="now-right"><div class="lab" style="margin:0 0 2px">How it feels — for you</div>${metricsInner(ev)}</div>` });
 }
 
 function metricsCard(ev, label, span = 'span4') {
