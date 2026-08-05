@@ -242,59 +242,44 @@ function hourDetailHTML(ev, s) {
     mk(isSnow ? 'Snow' : 'Rain', `${Math.round(raw.precipProb * 100)}%`, mvPrecip(type, raw.precipProb, c.precipitation)),
   ];
   return `<div class="hp-top"><span class="hp-t">${fmtClock(s.time)}</span><span class="hp-s c-${cl}">${scoreText(s.comfort / 10)} · ${band(s.comfort / 10)}</span><button class="hp-close" aria-label="Close">×</button></div>
-    <div class="hp-verdict">${hourVerdict(s.comfort / 10)}${isNow ? ' · right now' : ''}.</div>
+    <div class="hp-verdict">${hourVerdict(roundedScore(s.comfort / 10))}${isNow ? ' · right now' : ''}.</div>
     <div class="hp-metrics">${m.map(x => `<div class="hm"><div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d c-${x.cls}">${x.d}</div></div>`).join('')}</div>`;
 }
 
 function tooltipHTML(ev, s) {
   const cl = bandClsComfort(s.comfort), isNow = forecast.current && Math.abs(s.time - forecast.current.time) < 30 * 60000;
-  return `<div class="tt">${fmtClock(s.time)}${isNow ? ' · now' : ''}</div><div class="tr"><span>Feels</span><b>${Ts(s.apparentF)}</b></div><div class="tr"><span>Your score</span><b>${scoreText(s.comfort / 10)} · ${band(s.comfort / 10)}</b></div><div class="flag c-${cl}">${hourVerdict(s.comfort / 10)}</div>`;
+  return `<div class="tt">${fmtClock(s.time)}${isNow ? ' · now' : ''}</div><div class="tr"><span>Feels</span><b>${Ts(s.apparentF)}</b></div><div class="tr"><span>Your score</span><b>${scoreText(s.comfort / 10)} · ${band(s.comfort / 10)}</b></div><div class="flag c-${cl}">${hourVerdict(roundedScore(s.comfort / 10))}</div>`;
 }
 
-function timelineCard(ev, opts = {}) {
+function timelinePlot(ev, opts = {}) {
   const tl = drawTimeline(ev, opts);
-  const w = ev.bestWindow, golden = w && bandClsComfort(w.averageComfort) === 'golden', wcls = w ? bandClsComfort(w.averageComfort) : 'muted';
-  const tag = w
-    ? `<div class="tl-window-tag win-sel" style="border-color:var(--brand-gold)"><div class="rng ${golden ? 'gold-text' : 'c-' + wcls}">${rangeApp(w)}</div><div class="phr ${golden ? 'gold-text' : 'c-' + wcls}">${windowQualityPhrase(w)}</div></div>`
-    : `<div class="tl-window-tag" style="border-color:var(--hair)"><div class="rng c-muted">No good window</div><div class="phr c-muted">${headlineFor(ev)}</div></div>`;
-
   const wrap = el('div', { class: 'tl-wrap', tabindex: '0', role: 'slider', 'aria-label': 'Hourly comfort timeline' });
   const tip = el('div', { class: 'tip' });
   wrap.append(tl.svg, tip);
   const pin = el('div', { class: 'hourpin' });
   const main = el('div', { class: 'tl-main' }, [el('div', { class: 'tl-plot' }, [wrap]), pin]);
-  const card = el('section', { class: 'card tl-card' }, [
-    el('div', { class: 'tl-head' }, [el('div', { html: tag })]),
-    main,
-    el('div', { class: 'tl-hint' }, [opts.isToday ? 'Your comfort through the day · hover to inspect, click a point to pin an hour' : 'Forecast comfort through the day · hover or click a point for detail']),
-  ]);
+  const body = el('div', { class: 'tl-body' }, [main, el('div', { class: 'tl-hint' }, [opts.isToday ? 'Your comfort through the day · hover to inspect, click a point to pin an hour' : 'Forecast comfort through the day · hover or click a point for detail'])]);
 
   let pinned = null;
   const near = clientX => { const r = wrap.getBoundingClientRect(); const vbx = (clientX - r.left) / r.width * VBW; let b = 0, bd = 1e9; tl.data.forEach((h, i) => { const d = Math.abs(tl.X(h.time) - vbx); if (d < bd) { bd = d; b = i; } }); return b; };
-  const place = i => {
-    const h = tl.data[i], x = tl.X(h.time), y = tl.Y(h.comfort);
-    tl.hline.setAttribute('x1', x); tl.hline.setAttribute('x2', x);
-    tl.hdot.setAttribute('cx', x); tl.hdot.setAttribute('cy', y); tl.hdot.setAttribute('stroke', CSSV('--' + bandClsComfort(h.comfort)));
-  };
-  const hover = i => {
-    place(i); const x = tl.X(tl.data[i].time);
-    tip.innerHTML = tooltipHTML(ev, tl.data[i]);
-    const px = x / VBW * wrap.clientWidth; tip.style.left = Math.max(82, Math.min(wrap.clientWidth - 82, px)) + 'px'; tip.style.top = '0px'; tip.classList.add('on');
-  };
+  const place = i => { const h = tl.data[i], x = tl.X(h.time), y = tl.Y(h.comfort); tl.hline.setAttribute('x1', x); tl.hline.setAttribute('x2', x); tl.hdot.setAttribute('cx', x); tl.hdot.setAttribute('cy', y); tl.hdot.setAttribute('stroke', CSSV('--' + bandClsComfort(h.comfort))); };
+  const hover = i => { place(i); const x = tl.X(tl.data[i].time); tip.innerHTML = tooltipHTML(ev, tl.data[i]); const px = x / VBW * wrap.clientWidth; tip.style.left = Math.max(82, Math.min(wrap.clientWidth - 82, px)) + 'px'; tip.style.top = '0px'; tip.classList.add('on'); };
   const rest = () => { tip.classList.remove('on'); if (pinned != null) place(pinned); else if (opts.nowIndex != null) place(opts.nowIndex); };
-  const showPin = i => {
-    pinned = i; pin.innerHTML = hourDetailHTML(ev, tl.data[i]); pin.classList.add('on'); main.classList.add('pinned');
-    $('.hp-close', pin).addEventListener('click', e => { e.stopPropagation(); pinned = null; pin.classList.remove('on'); main.classList.remove('pinned'); rest(); });
-    hover(i);
-  };
+  const showPin = i => { pinned = i; pin.innerHTML = hourDetailHTML(ev, tl.data[i]); pin.classList.add('on'); main.classList.add('pinned'); $('.hp-close', pin).addEventListener('click', e => { e.stopPropagation(); pinned = null; pin.classList.remove('on'); main.classList.remove('pinned'); rest(); }); hover(i); };
   wrap.addEventListener('pointermove', e => { const i = near(e.clientX); if (e.buttons && pinned != null) showPin(i); else hover(i); });
   wrap.addEventListener('pointerdown', e => { e.preventDefault(); wrap.focus(); showPin(near(e.clientX)); });
   wrap.addEventListener('pointerleave', rest);
-  wrap.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const cur = pinned != null ? pinned : (opts.nowIndex ?? 0); showPin(Math.max(0, Math.min(tl.data.length - 1, cur + (e.key === 'ArrowRight' ? 1 : -1)))); }
-  });
+  wrap.addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const cur = pinned != null ? pinned : (opts.nowIndex ?? 0); showPin(Math.max(0, Math.min(tl.data.length - 1, cur + (e.key === 'ArrowRight' ? 1 : -1)))); } });
   if (opts.nowIndex != null) requestAnimationFrame(() => place(opts.nowIndex));
-  return card;
+  return body;
+}
+
+function timelineCard(ev, opts = {}) {
+  const w = ev.bestWindow, golden = w && bandClsComfort(w.averageComfort) === 'golden', wcls = w ? bandClsComfort(w.averageComfort) : 'muted';
+  const tag = w
+    ? `<div class="tl-window-tag win-sel" style="border-color:var(--brand-gold)"><div class="rng ${golden ? 'gold-text' : 'c-' + wcls}">${rangeApp(w)}</div><div class="phr ${golden ? 'gold-text' : 'c-' + wcls}">${windowQualityPhrase(w)}</div></div>`
+    : `<div class="tl-window-tag" style="border-color:var(--hair)"><div class="rng c-muted">No good window</div><div class="phr c-muted">${headlineFor(ev)}</div></div>`;
+  return el('section', { class: 'card tl-card' }, [el('div', { class: 'tl-head' }, [el('div', { html: tag })]), timelinePlot(ev, opts)]);
 }
 
 function nowPill(now, label) {
@@ -303,21 +288,37 @@ function nowPill(now, label) {
   return `<span class="now-badge c-${cl}" style="border-color:color-mix(in srgb,var(--${cl}) 40%,transparent);background:color-mix(in srgb,var(--${cl}) 12%,transparent)"><span class="nl">${label}</span><span class="nn">${scoreText(now.displayedScore)}</span><span>${band(now.displayedScore)}</span></span>`;
 }
 
-function scoreCard(ev, opts = {}) {
+function heroCard(ev, opts = {}) {
   const golden = isGolden(ev.displayedDayScore), cls = bandCls(ev.displayedDayScore);
-  const nowT = ev.isToday && forecast.current ? forecast.current.time : -Infinity;
   const vw = golden ? `<span class="gold-text">Golden</span> <span class="spark">✦</span>` : `<span class="c-${cls}">${band(ev.displayedDayScore)}</span>`;
-  const eyebrow = opts.eyebrow || 'TODAY · DAY SCORE';
-  return el('section', { class: 'card scorecard' + (golden ? ' gold-glow' : ''), html:
-    `<div class="eyebrow-row"><span class="eyebrow ${golden ? 'gold-text' : ''}">${eyebrow}</span></div>
+  const eyebrow = opts.eyebrow || 'TODAY';
+  const w = ev.bestWindow, wcls = w ? bandClsComfort(w.averageComfort) : 'muted', wg = w && wcls === 'golden';
+  const bestVal = w ? `${rangeApp(w)} · ${windowQualityPhrase(w)}` : headlineFor(ev);
+  const bestCls = w ? (wg ? 'gold-text' : 'c-' + wcls) : 'c-muted';
+  const rail = el('div', { class: 'hero-rail', html:
+    `<div class="eyebrow ${golden ? 'gold-text' : ''}">${eyebrow}</div>
      <div class="score-row"><div class="ring-wrap">${ringSVG(ev.displayedDayScore, golden)}<div class="ring-num"><span class="s ${golden ? 'gold-text' : ''}">${scoreText(ev.displayedDayScore)}</span><span class="d">/ 10</span></div></div>
        <div class="verdict"><div class="vw">${vw}</div><div class="vsub">${characterPhrase(ev)}.</div></div></div>
-     <div class="hero-stats">${skyText(ev.daySky)} · High ${Ts(ev.high)} · Low ${Ts(ev.low)}</div>` });
+     <div class="hero-divider"></div>
+     <div class="hero-stat"><span class="hs-k">Best window</span><span class="hs-v ${bestCls}">${bestVal}</span></div>
+     <div class="hero-stat"><span class="hs-k">The day</span><span class="hs-v">${skyText(ev.daySky)} · High ${Ts(ev.high)} · Low ${Ts(ev.low)}</span></div>` });
+  return el('section', { class: 'card hero' + (golden ? ' gold-glow' : ''), 'data-golden': golden ? '1' : null }, [rail, timelinePlot(ev, opts)]);
+}
+
+function metricsInner(ev) {
+  return `<div class="metrics">${metricRow(ev).map(x => `<div class="metric">${metricIcon(x.k)}<div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d c-${x.cls}">${x.d}</div></div>`).join('')}</div>`;
+}
+
+function nowCard(ev) {
+  const c = forecast.current;
+  return el('section', { class: 'card nowcard', html:
+    `<div class="now-left"><div class="rn-head"><span class="lab" style="margin:0">Right now</span>${nowPill(ev.now, 'FOR YOU')}</div>
+       <div class="now-mainrow"><div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${c.conditionText}</div></div>${currentGlyph(c.weatherCode, c.isDay)}</div></div>
+     <div class="now-right"><div class="lab">How it feels — for you</div>${metricsInner(ev)}</div>` });
 }
 
 function metricsCard(ev, label, span = 'span4') {
-  return el('section', { class: `card ${span}`, html:
-    `<div class="lab">${label}</div><div class="metrics">${metricRow(ev).map(x => `<div class="metric">${metricIcon(x.k)}<div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d c-${x.cls}">${x.d}</div></div>`).join('')}</div>` });
+  return el('section', { class: `card ${span}`, html: `<div class="lab">${label}</div>${metricsInner(ev)}` });
 }
 
 function breakdownCard(ev) {
@@ -369,10 +370,11 @@ function viewToday(root) {
   const wrap = el('div', { class: 'wrap' });
   if (stale) wrap.append(staleBanner());
   const week = evaluateWeekCached();
-  const nowRow = el('div', { class: 'dash', style: 'margin-top:0' }, [rightNowCard(ev), metricsCard(ev, 'What it feels like — for you')]);
-  const grid = el('div', { class: 'hero-grid', style: 'margin-top:18px' }, [scoreCard(ev), timelineCard(ev, { isToday: true, nowTime: forecast.current && forecast.current.time, nowIndex: nowIndexFor(ev) })]);
-  const dayRow = el('div', { class: 'dash' }, [breakdownCard(ev), weekMiniCard(week)]);
-  const body = el('div', stale ? { class: 'muteall' } : {}, [nowRow, grid, dayRow]);
+  const body = el('div', { class: 'today-stack' + (stale ? ' muteall' : '') }, [
+    nowCard(ev),
+    heroCard(ev, { isToday: true, nowTime: forecast.current && forecast.current.time, nowIndex: nowIndexFor(ev) }),
+    el('div', { class: 'dash', style: 'margin-top:0' }, [breakdownCard(ev), weekMiniCard(week)]),
+  ]);
   wrap.append(body, footer());
   root.append(wrap);
 }
@@ -404,9 +406,11 @@ function viewDay(root, i) {
   const name = i === 0 ? 'Today' : new Date(ev.rawHours[0].time).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
   const wrap = el('div', { class: 'wrap' });
   wrap.append(el('div', { class: 'crumb', html: `<a href="#/week">← Week</a> · ${name}` }));
-  const grid = el('div', { class: 'hero-grid' }, [scoreCard(ev, { eyebrow: `${name.toUpperCase()} · DAY SCORE` }), timelineCard(ev, { nowTime: i === 0 && forecast.current ? forecast.current.time : null, nowIndex: i === 0 ? nowIndexFor(ev) : null })]);
-  const dash = el('div', { class: 'dash' }, [metricsCard(ev, `What ${name} feels like — for you`, 'span6')]);
-  wrap.append(grid, dash, footer());
+  const body = el('div', { class: 'today-stack' }, [
+    heroCard(ev, { eyebrow: name.toUpperCase(), nowTime: i === 0 && forecast.current ? forecast.current.time : null, nowIndex: i === 0 ? nowIndexFor(ev) : null }),
+    metricsCard(ev, `What ${name} feels like — for you`, 'span6'),
+  ]);
+  wrap.append(body, footer());
   root.append(wrap);
 }
 
