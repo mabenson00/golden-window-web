@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Golden Window — your best time outside</title>
+  <meta name="description" content="A personal weather score and the best time to be outside." />
+  <meta name="theme-color" content="#E9EDF4" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0C0E14" media="(prefers-color-scheme: dark)" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="appbar">
+    <span class="brand"><img src="icon.svg" alt="" /><span class="serif">Golden Window</span></span>
+    <span class="spacer"></span>
+    <input id="search" placeholder="City or ZIP" aria-label="Search location" />
+  </header>
+  <main id="app"><div class="loading">Reading your forecast…</div></main>
+  <script type="module" src="app.js"></script>
+  <script>
+    document.getElementById('search').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.value.trim() && window.gwSearch) window.gwSearch(e.target.value.trim());
+    });
+  </script>
+</body>
+</html>

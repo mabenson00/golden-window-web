@@ -1,0 +1,79 @@
+const CODE_TEXT = {
+  0: 'Clear', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+  45: 'Fog', 48: 'Rime fog',
+  51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+  56: 'Freezing drizzle', 57: 'Freezing drizzle',
+  61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',
+  66: 'Freezing rain', 67: 'Freezing rain',
+  71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains',
+  80: 'Rain showers', 81: 'Rain showers', 82: 'Violent rain showers',
+  85: 'Snow showers', 86: 'Snow showers',
+  95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm',
+};
+export function conditionText(code) { return CODE_TEXT[code] ?? 'Unknown'; }
+
+function parseLocal(iso) {
+  if (!iso) return null;
+  return Date.parse(iso.endsWith('Z') ? iso : iso + 'Z');
+}
+
+export async function fetchForecast(lat, lon) {
+  const params = new URLSearchParams({
+    latitude: lat, longitude: lon,
+    hourly: 'temperature_2m,apparent_temperature,dew_point_2m,cloud_cover,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
+    current: 'temperature_2m,apparent_temperature,cloud_cover,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
+    daily: 'sunrise,sunset,weather_code,temperature_2m_max,temperature_2m_min',
+    temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'mm',
+    timezone: 'auto', forecast_days: '7',
+  });
+  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+  if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
+  const j = await res.json();
+
+  const h = j.hourly;
+  const hours = h.time.map((iso, i) => ({
+    time: parseLocal(iso), dateKey: iso.slice(0, 10),
+    temperatureF: h.temperature_2m[i], apparentF: h.apparent_temperature[i], dewF: h.dew_point_2m[i],
+    cloud: (h.cloud_cover[i] ?? 0) / 100, precipProb: (h.precipitation_probability[i] ?? 0) / 100,
+    precipMM: h.precipitation[i] ?? 0, weatherCode: h.weather_code[i],
+    windMph: h.wind_speed_10m[i] ?? 0, windGustMph: h.wind_gusts_10m[i] ?? 0,
+    isDay: h.is_day[i] === 1, aqi: null, conditionText: conditionText(h.weather_code[i]),
+  }));
+
+  const dailyDays = j.daily.time.map((iso, i) => ({
+    dateKey: iso.slice(0, 10),
+    sunrise: parseLocal(j.daily.sunrise[i]), sunset: parseLocal(j.daily.sunset[i]),
+    high: j.daily.temperature_2m_max[i], low: j.daily.temperature_2m_min[i],
+    code: j.daily.weather_code[i],
+  }));
+
+  const days = dailyDays.map(d => ({
+    ...d, hours: hours.filter(hr => hr.dateKey === d.dateKey),
+  })).filter(d => d.hours.length > 0);
+
+  const cur = j.current;
+  const curTime = parseLocal(cur.time);
+  let nearest = hours[0];
+  for (const hr of hours) if (Math.abs(hr.time - curTime) < Math.abs(nearest.time - curTime)) nearest = hr;
+  const current = {
+    time: curTime,
+    temperatureF: cur.temperature_2m, apparentF: cur.apparent_temperature,
+    dewF: nearest.dewF, cloud: (cur.cloud_cover ?? 0) / 100,
+    precipProb: nearest.precipProb, precipMM: cur.precipitation ?? 0,
+    weatherCode: cur.weather_code, windMph: cur.wind_speed_10m ?? 0, windGustMph: cur.wind_gusts_10m ?? 0,
+    isDay: cur.is_day === 1, aqi: null, conditionText: conditionText(cur.weather_code),
+  };
+
+  return { updatedAt: curTime, current, days, latitude: lat, longitude: lon };
+}
+
+export async function geocode(query) {
+  const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1`);
+  if (!res.ok) throw new Error(`geocode ${res.status}`);
+  const j = await res.json();
+  const r = j.results && j.results[0];
+  if (!r) return null;
+  return { lat: r.latitude, lon: r.longitude, name: [r.name, r.admin1, r.country_code].filter(Boolean).join(', ') };
+}
+
+export function roundCoord(x) { return Math.round(x * 100) / 100; }
