@@ -51,7 +51,7 @@ const bandClsComfort = comfort => bandCls(comfort / 10);
 const T = f => units === 'C' ? Math.round((f - 32) * 5 / 9) : Math.round(f);
 const Ts = f => `${T(f)}°`;
 
-const compCls = c => (c == null ? 'muted' : bandCls(c * 10));
+const compCls = c => { if (c == null) return 'muted'; const b = bandCls(c * 10); return b === 'golden' ? 'great' : b; };
 function mvTemp(c) { if (c == null) return ['—', 'muted']; const col = compCls(c); if (c >= 0.8) return ['Near ideal', col]; if (c >= 0.6) return ['Comfortable', col]; if (c >= 0.35) return ['A bit off', col]; return ['Uncomfortable', col]; }
 function mvClouds(frac, c) { const col = compCls(c); let t; if (frac < 0.20) t = 'Clear'; else if (frac < 0.50) t = 'Partly cloudy'; else if (frac < 0.80) t = 'Cloudy'; else t = 'Overcast'; return [t, col]; }
 function mvMug(c) { if (c == null) return ['—', 'muted']; const col = compCls(c); if (c >= 0.75) return ['Comfortable', col]; if (c >= 0.5) return ['Slightly humid', col]; if (c >= 0.3) return ['Muggy', col]; return ['Oppressive', col]; }
@@ -169,6 +169,18 @@ function ringSVG(displayed, golden) {
   return `<svg viewBox="0 0 128 128">${defs}<circle cx="64" cy="64" r="${r}" fill="none" stroke="${CSSV('--hair')}" stroke-width="10"/><circle cx="64" cy="64" r="${r}" fill="none" stroke="${stroke}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(circ * frac).toFixed(1)} ${circ.toFixed(1)}"/></svg>`;
 }
 
+function smoothPath(pts) {
+  if (pts.length < 2) return pts.length ? `M${pts[0].x},${pts[0].y}` : '';
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
 function drawTimeline(ev, opts = {}) {
   let data = ev.hourly.filter(h => { const lh = localHour(h.time); return lh >= PLOT_LO && lh <= PLOT_HI; });
   if (data.length < 2) data = ev.hourly.slice();
@@ -196,10 +208,11 @@ function drawTimeline(ev, opts = {}) {
     }
   }
 
-  const pts = data.map(h => `${X(h.time).toFixed(1)},${Y(h.comfort).toFixed(1)}`).join(' ');
-  const ad = E('defs', {}); ad.innerHTML = `<linearGradient id="tlarea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${muted}" stop-opacity=".20"/><stop offset="1" stop-color="${muted}" stop-opacity="0"/></linearGradient>`; svg.append(ad);
-  svg.append(E('polygon', { points: `${X(domS).toFixed(1)},${PBOT} ${pts} ${X(domE).toFixed(1)},${PBOT}`, fill: 'url(#tlarea)' }));
-  svg.append(E('polyline', { points: pts, fill: 'none', stroke: muted, 'stroke-width': 2.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  const P = data.map(h => ({ x: X(h.time), y: Y(h.comfort) }));
+  const linePath = smoothPath(P);
+  const ad = E('defs', {}); ad.innerHTML = `<linearGradient id="tlarea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${muted}" stop-opacity=".26"/><stop offset="1" stop-color="${muted}" stop-opacity="0"/></linearGradient>`; svg.append(ad);
+  svg.append(E('path', { d: `${linePath} L${X(domE).toFixed(1)},${PBOT} L${X(domS).toFixed(1)},${PBOT} Z`, fill: 'url(#tlarea)' }));
+  svg.append(E('path', { d: linePath, fill: 'none', stroke: muted, 'stroke-width': 2.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
 
   [ev.sunrise, ev.sunset].forEach(t => { if (t && t >= domS && t <= domE) svg.append(E('line', { x1: X(t), x2: X(t), y1: PBOT, y2: PBOT + 6, stroke: CSSV('--brand-gold'), 'stroke-width': 2.2 })); });
 
@@ -298,11 +311,12 @@ function scoreCard(ev, opts = {}) {
   return el('section', { class: 'card scorecard' + (golden ? ' gold-glow' : ''), html:
     `<div class="eyebrow-row"><span class="eyebrow ${golden ? 'gold-text' : ''}">${eyebrow}</span></div>
      <div class="score-row"><div class="ring-wrap">${ringSVG(ev.displayedDayScore, golden)}<div class="ring-num"><span class="s ${golden ? 'gold-text' : ''}">${scoreText(ev.displayedDayScore)}</span><span class="d">/ 10</span></div></div>
-       <div class="verdict"><div class="vw">${vw}</div><div class="vsub">${heroSubtitle(ev, nowT)}</div></div></div>` });
+       <div class="verdict"><div class="vw">${vw}</div><div class="vsub">${characterPhrase(ev)}.</div></div></div>
+     <div class="hero-stats">${skyText(ev.daySky)} · High ${Ts(ev.high)} · Low ${Ts(ev.low)}</div>` });
 }
 
-function metricsCard(ev, label) {
-  return el('section', { class: 'card span4', html:
+function metricsCard(ev, label, span = 'span4') {
+  return el('section', { class: `card ${span}`, html:
     `<div class="lab">${label}</div><div class="metrics">${metricRow(ev).map(x => `<div class="metric">${metricIcon(x.k)}<div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d c-${x.cls}">${x.d}</div></div>`).join('')}</div>` });
 }
 
@@ -316,6 +330,16 @@ function breakdownCard(ev) {
 
 function weekdayName(ev) { return ev.isToday ? 'Today' : new Date(ev.rawHours[0].time).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }); }
 
+function miniSpark(ev) {
+  let data = ev.hourly.filter(h => { const lh = localHour(h.time); return lh >= PLOT_LO && lh <= PLOT_HI; });
+  if (data.length < 2) data = ev.hourly.slice();
+  const W = 150, H = 34, domS = data[0].time, domE = data[data.length - 1].time, span = Math.max(1, domE - domS);
+  const X = t => 3 + (t - domS) / span * (W - 6), Y = c => H - 3 - Math.max(0, Math.min(1, c / 100)) * (H - 8);
+  const P = data.map(h => ({ x: X(h.time), y: Y(h.comfort) }));
+  const cls = isGolden(ev.displayedDayScore) ? 'golden' : bandCls(ev.displayedDayScore);
+  return `<svg class="wspark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${smoothPath(P)}" fill="none" stroke="var(--${cls})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/></svg>`;
+}
+
 function weekMiniCard(week) {
   const rows = week.slice(0, 4).map(d => { const cls = bandCls(d.displayedDayScore), g = isGolden(d.displayedDayScore);
     return `<a href="#/week/${d.index}"><span class="d">${weekdayName(d)}</span><span class="b ${g ? 'gold-badge' : 'bg-' + cls}">${scoreText(d.displayedDayScore)}${g ? ' <span class="spark">✦</span>' : ''}</span><span class="w">${windowText(d)}</span><span class="hl">${T(d.high)}/${T(d.low)}</span></a>`; }).join('');
@@ -323,9 +347,9 @@ function weekMiniCard(week) {
 }
 
 function rightNowCard(ev) {
-  const c = forecast.current, d = forecast.days[0];
+  const c = forecast.current;
   return el('section', { class: 'card span2 rn', html:
-    `<div class="rn-main"><div class="rn-head"><span class="lab" style="margin:0">Right now</span>${nowPill(ev.now, 'FOR YOU')}</div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${c.conditionText}</div><div class="rn-m">Feels ${Ts(c.apparentF)} · High ${Ts(d.high)} · Low ${Ts(d.low)}</div></div>
+    `<div class="rn-main"><div class="rn-head"><span class="lab" style="margin:0">Right now</span>${nowPill(ev.now, 'FOR YOU')}</div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${c.conditionText}</div></div>
      ${currentGlyph(c.weatherCode, c.isDay)}` });
 }
 
@@ -344,10 +368,12 @@ function viewToday(root) {
   if (isSafetyOverride()) return viewSafety(root, ev);
   const wrap = el('div', { class: 'wrap' });
   if (stale) wrap.append(staleBanner());
-  const grid = el('div', { class: 'hero-grid' }, [scoreCard(ev), timelineCard(ev, { isToday: true, nowTime: forecast.current && forecast.current.time, nowIndex: nowIndexFor(ev) })]);
   const week = evaluateWeekCached();
-  const dash = el('div', { class: 'dash' }, [rightNowCard(ev), metricsCard(ev, 'What it feels like — for you'), breakdownCard(ev), weekMiniCard(week)]);
-  wrap.append(stale ? el('div', { class: 'muteall' }, [grid, dash]) : el('div', {}, [grid, dash]), footer());
+  const nowRow = el('div', { class: 'dash', style: 'margin-top:0' }, [rightNowCard(ev), metricsCard(ev, 'What it feels like — for you')]);
+  const grid = el('div', { class: 'hero-grid', style: 'margin-top:18px' }, [scoreCard(ev), timelineCard(ev, { isToday: true, nowTime: forecast.current && forecast.current.time, nowIndex: nowIndexFor(ev) })]);
+  const dayRow = el('div', { class: 'dash' }, [breakdownCard(ev), weekMiniCard(week)]);
+  const body = el('div', stale ? { class: 'muteall' } : {}, [nowRow, grid, dayRow]);
+  wrap.append(body, footer());
   root.append(wrap);
 }
 
@@ -356,13 +382,16 @@ function viewWeek(root) {
   const wrap = el('div', { class: 'wrap' });
   if (stale) wrap.append(staleBanner());
   wrap.append(el('div', { class: 'lab' }, ['Next 7 days · your personal score & best window']));
+  const bestIdx = week.reduce((b, d) => d.displayedDayScore > week[b].displayedDayScore ? d.index : b, 0);
   const grid = el('div', { class: 'week7' });
   week.forEach(d => {
-    const cls = bandCls(d.displayedDayScore), g = isGolden(d.displayedDayScore);
-    grid.append(el('a', { href: `#/week/${d.index}`, class: 'wday' + (g ? ' sel gold-glow' : ''), html:
-      `<div class="wn">${weekdayName(d)}</div><div class="wsky">${skyEmoji(d.daySky)}</div>
+    const cls = bandCls(d.displayedDayScore), g = isGolden(d.displayedDayScore), isBest = d.index === bestIdx && week.length > 1;
+    grid.append(el('a', { href: `#/week/${d.index}`, class: 'wday' + (g ? ' sel gold-glow' : '') + (isBest && !g ? ' best' : ''), html:
+      `<div class="wtop">${isBest ? 'Best day' : ''}</div>
+       <div class="wn">${weekdayName(d)}</div><div class="wsky">${skyEmoji(d.daySky)}</div>
        <div class="wbadge ${g ? 'gold-badge' : 'bg-' + cls}">${scoreText(d.displayedDayScore)}${g ? ' <span class="spark">✦</span>' : ''}</div>
        <div class="wband ${g ? 'gold-text' : 'c-' + cls}">${band(d.displayedDayScore)}</div>
+       ${miniSpark(d)}
        <div class="wwin">${windowText(d)}</div><div class="wchar">${characterPhrase(d)}</div><div class="whl">${T(d.high)}° / ${T(d.low)}°</div>` }));
   });
   wrap.append(grid, el('div', { class: 'tl-hint', style: 'text-align:left;margin-top:16px' }, ['Click any day to open its full detail. A day with nothing good honestly says “No good window.”']), footer());
@@ -376,7 +405,7 @@ function viewDay(root, i) {
   const wrap = el('div', { class: 'wrap' });
   wrap.append(el('div', { class: 'crumb', html: `<a href="#/week">← Week</a> · ${name}` }));
   const grid = el('div', { class: 'hero-grid' }, [scoreCard(ev, { eyebrow: `${name.toUpperCase()} · DAY SCORE` }), timelineCard(ev, { nowTime: i === 0 && forecast.current ? forecast.current.time : null, nowIndex: i === 0 ? nowIndexFor(ev) : null })]);
-  const dash = el('div', { class: 'dash' }, [metricsCard(ev, `What ${name} feels like — for you`), el('section', { class: 'card span2', html: `<div class="lab">Day character</div><div style="font-size:15px;line-height:1.6;color:var(--muted)">${characterPhrase(ev)}. ${skyText(ev.daySky)}, high ${T(ev.high)}° / low ${T(ev.low)}°.</div>` })]);
+  const dash = el('div', { class: 'dash' }, [metricsCard(ev, `What ${name} feels like — for you`, 'span6')]);
   wrap.append(grid, dash, footer());
   root.append(wrap);
 }
@@ -386,7 +415,7 @@ function viewSettings(root) {
   const save = () => store.set('gw.profile', profile);
   const grid = el('div', { class: 'set-grid' });
 
-  const prof = el('section', { class: 'card set-card', style: 'grid-row:span 2' });
+  const prof = el('section', { class: 'card set-card', style: 'grid-row:span 3' });
   prof.append(el('h3', {}, ['Your comfort profile']));
   const pref = (label, valFn, min, max, step, get, set) => {
     const v = el('span', { class: 'sv' }, [valFn()]);
@@ -420,7 +449,15 @@ function viewSettings(root) {
   locCard.append(el('div', { class: 'set-row' }, [el('span', {}, ['Current place']), el('span', { class: 'sv' }, [(location || DEFAULT_LOC).name])]));
   grid.append(locCard);
 
-  const about = el('section', { class: 'card set-card' });
+  const appCard = el('section', { class: 'card set-card' });
+  appCard.append(el('h3', {}, ['Appearance']));
+  const aSeg = el('div', { class: 'seg' });
+  const mkA = () => { aSeg.innerHTML = ''; [['System', 'system'], ['Light', 'light'], ['Dark', 'dark']].forEach(([t, v]) => aSeg.append(el('button', { class: appearance === v ? 'on' : '', onclick: () => setAppearance(v) }, [t]))); };
+  mkA();
+  appCard.append(el('div', { class: 'set-row' }, [el('span', {}, ['Theme']), aSeg]));
+  grid.append(appCard);
+
+  const about = el('section', { class: 'card set-card', style: 'grid-column:1/-1' });
   about.append(el('h3', {}, ['About']));
   about.append(el('div', { class: 'about', html: `Golden Window — a personal weather score and the best time to be outside. Scores and explanations are relative to your local weather; safety warnings are absolute.<div style="margin-top:10px">Weather data by <b>Open-Meteo</b>.</div><div class="ver">Version 1.0 (web) · No account, no tracking</div>` }));
   about.append(el('div', { style: 'margin-top:14px' }, [el('button', { class: 'btn ghost', style: 'color:var(--poor);border-color:color-mix(in srgb,var(--poor) 40%,transparent)', onclick: () => { profile = { ...sensibleDefault }; store.set('gw.profile', profile); route(); } }, ['Reset preferences'])]));
