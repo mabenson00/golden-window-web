@@ -336,9 +336,7 @@ function nowCard(ev) {
          <div class="verdict"><div class="vw"><span class="c-${cls}">${band(now.displayedScore)}</span></div><div class="vsub">${nowCharacter(ev)}.</div></div></div>`
     : '';
   return el('section', { class: 'card hero', html:
-    `<div class="hero-rail"><div class="eyebrow">RIGHT NOW</div>${ring}
-       <div class="hero-divider"></div>
-       <div class="hero-stat"><span class="hs-k">Conditions</span><span class="hs-v">${Ts(c.temperatureF)} · ${sky.text} · feels ${Ts(c.apparentF)}</span></div></div>
+    `<div class="hero-rail"><div class="eyebrow">RIGHT NOW</div>${ring}</div>
      <div class="now-right"><div class="now-right-head"><span class="lab" style="margin:0">How it feels — for you</span>${glyphSVG(sky.kind)}</div>${metricsInner(ev)}</div>` });
 }
 
