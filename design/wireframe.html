@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Window — Web Wireframe Walkthrough</title>
+<style>
+/* ============================================================
+   DESIGN TOKENS — mirror docs/DESIGN_SYSTEM.md exactly.
+   Light = :root; dark via prefers-color-scheme AND a .dark scope
+   (so we can force a dark panel for the dark-mode showcase).
+   ============================================================ */
+:root{
+  --bg:#E9EDF4; --card:#FFFFFF; --ink:#0F1728; --muted:#5B6472; --faint:#98A2B3; --hair:#E6E9EF;
+  /* 6-tier comfort scale */
+  --golden:#D89A1B; --great:#248A4D; --good:#48A86C; --decent:#9C7C46; --poor:#D95D38; --bad:#B83A2C;
+  /* golden celebration */
+  --gold-bright:#F6CC5A; --gold-deep:#C6870F;
+  /* interaction + brand */
+  --accent:#2F6BED; --brand-gold:#F2B544; --brand-navy:#13213A; --brand-sky:#AFCFF3; --brand-pale:#E7F1FC;
+  /* safety (separate from a low score) */
+  --safety:#B3261E; --safety-bg:#FDEEEC; --safety-border:#F2C4BC; --safety-ink:#8F2A1E;
+  /* stale/offline caution */
+  --stale:#8A6D1F; --stale-bg:#FDF4E0; --stale-border:#ECDAA8;
+  --shadow:0 1px 2px rgba(15,23,40,.04),0 10px 30px rgba(15,23,40,.06);
+  --shadow-lg:0 20px 60px rgba(15,23,40,.14);
+  --serif:ui-serif,Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+.dark{
+  --bg:#0C0E14; --card:#171B23; --ink:#F2F4F8; --muted:#98A2B3; --faint:#6B7480; --hair:#262B35;
+  --golden:#F2B544; --great:#3FBE72; --good:#63C98A; --decent:#C2A867; --poor:#E9744F; --bad:#E0533F;
+  --gold-bright:#FCD873; --gold-deep:#D79A1E;
+  --accent:#4B82F3; --brand-gold:#F6C65B; --brand-navy:#EAF0F8; --brand-sky:#78A9DC; --brand-pale:#1A2436;
+  --safety:#F05B50; --safety-bg:#2A1512; --safety-border:#5A2A22; --safety-ink:#F3B4A8;
+  --stale:#D8B85A; --stale-bg:#241E10; --stale-border:#4A3F1C;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.4);
+  --shadow-lg:0 24px 60px rgba(0,0,0,.55);
+}
+@media (prefers-color-scheme:dark){
+  :root:not(.light){
+    --bg:#0C0E14; --card:#171B23; --ink:#F2F4F8; --muted:#98A2B3; --faint:#6B7480; --hair:#262B35;
+    --golden:#F2B544; --great:#3FBE72; --good:#63C98A; --decent:#C2A867; --poor:#E9744F; --bad:#E0533F;
+    --gold-bright:#FCD873; --gold-deep:#D79A1E;
+    --accent:#4B82F3; --brand-gold:#F6C65B; --brand-navy:#EAF0F8; --brand-sky:#78A9DC; --brand-pale:#1A2436;
+    --safety:#F05B50; --safety-bg:#2A1512; --safety-border:#5A2A22; --safety-ink:#F3B4A8;
+    --stale:#D8B85A; --stale-bg:#241E10; --stale-border:#4A3F1C;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.4);
+    --shadow-lg:0 24px 60px rgba(0,0,0,.55);
+  }
+}
+
+/* ============================================================
+   WALKTHROUGH CHROME (the page that shows the panels)
+   ============================================================ */
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);color:#0f1728;
+  background:radial-gradient(1600px 800px at 50% -8%,#f4f7fc,#dbe1ec);
+  -webkit-font-smoothing:antialiased;padding:40px 24px 120px}
+@media (prefers-color-scheme:dark){body{background:radial-gradient(1600px 800px at 50% -8%,#12151d,#07080c);color:#f2f4f8}}
+.wt{max-width:1280px;margin:0 auto}
+.wt-h1{font-size:30px;letter-spacing:-.02em;margin:0 0 8px}
+.wt-lead{font-size:15px;line-height:1.6;max-width:900px;color:#5b6472;margin:0 0 6px}
+@media (prefers-color-scheme:dark){.wt-lead{color:#98a2b3}}
+.wt-lead b{color:inherit}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+.legend .pill{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;
+  background:rgba(255,255,255,.6);border:1px solid rgba(15,23,40,.08)}
+@media (prefers-color-scheme:dark){.legend .pill{background:rgba(23,27,35,.6);border-color:rgba(255,255,255,.08)}}
+.legend .sw{width:12px;height:12px;border-radius:4px}
+.sec-div{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#98a2b3;
+  margin:56px 0 4px;padding-top:20px;border-top:1px solid rgba(15,23,40,.12)}
+@media (prefers-color-scheme:dark){.sec-div{border-top-color:rgba(255,255,255,.1)}}
+.sec-sub{font-size:14px;color:#5b6472;margin:0 0 20px;max-width:860px;line-height:1.55}
+@media (prefers-color-scheme:dark){.sec-sub{color:#98a2b3}}
+.note{font-size:13px;color:#5b6472;line-height:1.6;margin:14px 2px 0;max-width:900px}
+@media (prefers-color-scheme:dark){.note{color:#98a2b3}}
+.note b{color:inherit}
+.a11y{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;line-height:1.55;color:#5b6472;
+  background:rgba(47,107,237,.06);border:1px solid rgba(47,107,237,.16);border-radius:12px;padding:11px 14px;margin:14px 2px 0;max-width:900px}
+@media (prefers-color-scheme:dark){.a11y{color:#a9b4c4;background:rgba(75,130,243,.08);border-color:rgba(75,130,243,.2)}}
+.a11y b{color:inherit}
+.a11y .tag{font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--accent);padding-top:2px;flex:none}
+
+/* Browser frame that holds each website screen */
+.frame{border-radius:16px;overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid rgba(15,23,40,.1);margin-top:22px;background:var(--bg)}
+.frame.dark,.frame.light{color:var(--ink)}
+.fbar{display:flex;align-items:center;gap:14px;padding:11px 16px;background:#dfe4ee;border-bottom:1px solid rgba(15,23,40,.08)}
+.dark .fbar{background:#0f131b;border-bottom-color:rgba(255,255,255,.06)}
+.fdots{display:flex;gap:7px}
+.fdots i{width:11px;height:11px;border-radius:50%;background:#c3cbd8}
+.fdots i:nth-child(1){background:#ec6a5e}.fdots i:nth-child(2){background:#f4be4f}.fdots i:nth-child(3){background:#61c554}
+.furl{flex:1;background:#fff;border-radius:8px;padding:5px 12px;font-size:12px;color:#5b6472;max-width:360px}
+.dark .furl{background:#1b2029;color:#98a2b3}
+.fmeta{font-size:11px;color:#7a8494;margin-left:auto}
+.fbody{background:var(--bg);padding:0}
+
+/* ============================================================
+   APP SHELL (inside the frame) — global chrome + tokens
+   ============================================================ */
+.app{color:var(--ink);font-family:var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:20px;
+  padding:14px 26px;background:color-mix(in srgb,var(--bg) 82%,transparent);
+  backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--hair)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
+.brand .mark{width:30px;height:30px;border-radius:9px;background:
+  linear-gradient(135deg,var(--brand-sky),var(--brand-pale));display:flex;align-items:center;justify-content:center;flex:none;
+  border:1px solid rgba(15,23,40,.06)}
+.brand .name{font-family:var(--serif);font-size:19px;letter-spacing:-.01em}
+.nav{display:flex;gap:4px;margin-left:6px}
+.nav a{font-size:14px;font-weight:600;color:var(--muted);text-decoration:none;padding:8px 14px;border-radius:10px}
+.nav a.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.grow{flex:1}
+.loc-chip{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:12px;border:1px solid var(--hair);background:var(--card);cursor:pointer}
+.loc-chip .lc-name{font-size:14px;font-weight:600}
+.loc-chip .lc-time{font-size:11px;color:var(--faint)}
+.search{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--hair);border-radius:12px;padding:8px 12px;width:210px}
+.search input{border:0;background:transparent;color:var(--ink);font-size:13px;width:100%;outline:none;font-family:var(--sans)}
+.search svg{color:var(--faint)}
+.seg{display:flex;background:var(--card);border:1px solid var(--hair);border-radius:12px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--muted);padding:6px 10px;border-radius:9px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.seg button.on{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.icon{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.icon.sm{width:15px;height:15px}
+
+.canvas{padding:26px}
+.lab{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin:0 2px 10px}
+.card{background:var(--card);border-radius:22px;padding:22px;box-shadow:var(--shadow)}
+
+/* ---------- HERO (score + timeline side by side) ---------- */
+.hero-grid{display:grid;grid-template-columns:390px 1fr;gap:18px;align-items:stretch}
+.scorecard{position:relative;display:flex;flex-direction:column;justify-content:center;gap:16px}
+.eyebrow-row{display:flex;align-items:center;justify-content:space-between}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+.now-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;border:1px solid;font-size:13px;font-weight:600}
+.now-badge .nl{font-size:9px;font-weight:900;letter-spacing:.7px}
+.now-badge .nn{font-family:var(--serif);font-weight:700}
+.score-row{display:flex;align-items:center;gap:22px}
+.ring-wrap{position:relative;width:128px;height:128px;flex:none}
+.ring-wrap svg{width:128px;height:128px;transform:rotate(-90deg)}
+.ring-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-num .s{font-family:var(--serif);font-size:44px;font-weight:700;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ring-num .d{font-size:12px;color:var(--faint);margin-top:2px}
+.verdict .vw{font-family:var(--serif);font-size:34px;font-weight:700;letter-spacing:-.01em;line-height:1.05;display:flex;align-items:center;gap:8px}
+.verdict .vsub{font-size:14.5px;color:var(--muted);margin-top:8px;line-height:1.45;max-width:260px}
+.besttime{font-size:15px;font-weight:600;margin-top:2px}
+.besttime .rng{font-family:var(--serif);font-size:17px}
+
+/* timeline card */
+.tl-card{display:flex;flex-direction:column}
+.tl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.tl-window-tag{display:inline-block;border:1px solid;border-radius:12px;padding:7px 13px}
+.tl-window-tag .rng{font-family:var(--serif);font-size:19px;font-weight:700}
+.tl-window-tag .phr{font-size:12.5px;font-weight:600;margin-top:1px}
+.tl-backup{font-size:12px;color:var(--faint);text-align:right;line-height:1.4}
+.tl-wrap{position:relative;margin-top:14px;touch-action:none;cursor:crosshair}
+.tl-wrap svg{width:100%;height:190px;display:block}
+.tl-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);padding:4px 4px 0}
+.tl-hint{font-size:11.5px;color:var(--faint);text-align:center;margin-top:8px}
+.tip{position:absolute;transform:translateX(-50%);pointer-events:none;z-index:3;background:var(--ink);color:var(--bg);
+  border-radius:12px;padding:10px 12px;font-size:12px;min-width:150px;box-shadow:0 12px 28px rgba(0,0,0,.28);opacity:0;transition:opacity .12s}
+.dark .tip,.tip{background:#0f1728;color:#fff}
+.dark .tip{background:#f2f4f8;color:#0f1728}
+.tip.on{opacity:1}
+.tip .tt{font-weight:700;font-size:12.5px;margin-bottom:5px}
+.tip .tr{display:flex;justify-content:space-between;gap:14px;opacity:.8}
+.tip .tr b{opacity:1;font-weight:600}
+.tip .flag{margin-top:6px;font-size:11px;font-weight:700}
+
+/* pinned hour-detail popover */
+.hourpin{margin-top:14px;border:1px solid var(--hair);border-left:3px solid var(--accent);border-radius:14px;padding:14px 16px;background:color-mix(in srgb,var(--accent) 5%,var(--card));display:none}
+.hourpin.on{display:block}
+.hourpin .hp-top{display:flex;align-items:center;justify-content:space-between}
+.hourpin .hp-t{font-size:15px;font-weight:700}
+.hourpin .hp-s{font-size:13px;font-weight:700}
+.hourpin .hp-close{cursor:pointer;color:var(--faint);font-size:18px;line-height:1}
+.hourpin .hp-verdict{font-size:13px;color:var(--muted);margin:4px 0 8px}
+.hp-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.hp-metrics .hm{background:var(--card);border:1px solid var(--hair);border-radius:10px;padding:9px 10px}
+.hp-metrics .hm .k{font-size:9.5px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
+.hp-metrics .hm .v{font-size:14px;font-weight:700;margin-top:3px}
+.hp-metrics .hm .d{font-size:11px;margin-top:1px}
+
+/* ---------- dashboard grid ---------- */
+.dash{display:grid;grid-template-columns:repeat(6,1fr);gap:18px;margin-top:20px}
+.span2{grid-column:span 2}.span3{grid-column:span 3}.span4{grid-column:span 4}.span6{grid-column:span 6}
+.rn{display:flex;align-items:center;justify-content:space-between}
+.rn .rn-t{font-size:62px;font-weight:300;letter-spacing:-.03em;line-height:1}
+.rn .rn-c{font-size:16px;font-weight:700;margin-top:4px}
+.rn .rn-m{font-size:13px;color:var(--muted);margin-top:6px}
+.rn .sun{width:78px;height:78px;flex:none}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr)}
+.metric{padding:6px 8px;position:relative;text-align:center}
+.metric+.metric::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:1px;background:var(--hair)}
+.metric .mi{width:24px;height:24px;color:var(--muted);margin:0 auto 8px;display:block}
+.metric .k{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
+.metric .v{font-size:20px;font-weight:700;margin-top:4px}
+.metric .d{font-size:12px;font-weight:600;margin-top:2px}
+.brk{display:flex;flex-direction:column;gap:14px}
+.brk-row .brk-head{display:flex;justify-content:space-between;align-items:baseline}
+.brk-row .brk-l{font-size:14px;font-weight:600}
+.brk-row .brk-v{font-size:12.5px;font-weight:700}
+.brk-bar{height:7px;border-radius:5px;background:var(--hair);margin-top:7px;overflow:hidden}
+.brk-fill{height:100%;border-radius:5px}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-head .ch-t{font-size:15px;font-weight:700}
+.card-head a{font-size:13px;font-weight:600;color:var(--accent);text-decoration:none}
+.wk-mini{display:flex;flex-direction:column;gap:2px}
+.wk-mini .wm{display:flex;align-items:center;gap:12px;padding:9px 4px;border-top:1px solid var(--hair)}
+.wk-mini .wm:first-child{border-top:0}
+.wk-mini .wm .d{width:34px;font-size:13px;font-weight:600;color:var(--muted)}
+.wk-mini .wm .b{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex:none;font-family:var(--serif)}
+.wk-mini .wm .w{flex:1;font-size:13px}
+.wk-mini .wm .hl{font-size:12px;color:var(--faint)}
+
+/* band color helpers */
+.c-golden{color:var(--golden)} .c-great{color:var(--great)} .c-good{color:var(--good)}
+.c-decent{color:var(--decent)} .c-poor{color:var(--poor)} .c-bad{color:var(--bad)}
+.bg-golden{background:var(--golden)} .bg-great{background:var(--great)} .bg-good{background:var(--good)}
+.bg-decent{background:var(--decent)} .bg-poor{background:var(--poor)} .bg-bad{background:var(--bad)}
+.brd-great{border-color:var(--brand-gold)} /* best-window selection = brand gold */
+.fill-great{background:var(--great)}.fill-good{background:var(--good)}.fill-poor{background:var(--poor)}
+
+/* golden celebration */
+.gold-badge{background:linear-gradient(135deg,var(--gold-bright),var(--golden) 55%,var(--gold-deep));color:#fff !important;
+  box-shadow:0 0 0 1px rgba(214,154,27,.25),0 6px 18px rgba(214,154,27,.35)}
+.gold-text{background:linear-gradient(135deg,var(--gold-bright),var(--golden) 55%,var(--gold-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.spark{font-size:.6em;color:var(--brand-gold);animation:tw 2.4s ease-in-out infinite;display:inline-block}
+.gold-badge .spark{color:#fff}
+@keyframes tw{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+.gold-glow{box-shadow:0 0 0 1px color-mix(in srgb,var(--brand-gold) 40%,transparent),0 8px 30px color-mix(in srgb,var(--brand-gold) 32%,transparent)}
+
+/* window selection treatment (brand gold) */
+.win-sel{border-color:var(--brand-gold);background:color-mix(in srgb,var(--brand-gold) 8%,var(--card))}
+
+/* ---------- WEEK (7 across) ---------- */
+.week7{display:grid;grid-template-columns:repeat(7,1fr);gap:14px}
+.wday{background:var(--card);border-radius:18px;padding:16px 12px;box-shadow:var(--shadow);text-align:center;cursor:pointer;
+  border:1px solid transparent;transition:transform .12s,box-shadow .12s}
+.wday:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+.wday.sel{border-color:var(--brand-gold)}
+.wday .wn{font-size:13px;font-weight:700;color:var(--muted)}
+.wday .wsky{font-size:30px;margin:8px 0 6px}
+.wday .wbadge{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;
+  font-family:var(--serif);font-size:19px;font-weight:800;color:#fff}
+.wday .wband{font-size:12px;font-weight:700;margin-bottom:8px}
+.wday .wwin{font-size:12.5px;font-weight:600}
+.wday .wchar{font-size:11.5px;color:var(--faint);margin-top:3px;line-height:1.35;min-height:30px}
+.wday .whl{font-size:12px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--hair)}
+
+/* ---------- onboarding ---------- */
+.ob-welcome{max-width:640px;margin:0 auto;text-align:center;padding:36px 20px}
+.ob-mark{width:96px;height:96px;margin:0 auto 22px;display:block}
+.ob-welcome h2{font-family:var(--serif);font-size:44px;letter-spacing:-.02em;margin:0 0 8px}
+.ob-welcome .tag{font-size:16px;color:var(--muted);margin:0 0 8px}
+.ob-welcome p{font-size:15px;color:var(--muted);line-height:1.6;max-width:460px;margin:0 auto 26px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:#fff;border:0;
+  border-radius:14px;padding:14px 26px;font-size:15px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+.btn.ghost{background:transparent;border:1.5px solid var(--hair);color:var(--muted)}
+.btn.block{width:100%}
+.ob-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.ob-q{display:grid;grid-template-columns:1fr 340px;gap:28px;align-items:center;max-width:900px;margin:0 auto;padding:20px}
+.stepper{display:flex;gap:8px;margin-bottom:22px}
+.stepper i{height:6px;border-radius:4px;background:var(--hair);flex:1}
+.stepper i.on{background:var(--accent)}
+.stepper i.done{background:color-mix(in srgb,var(--accent) 45%,var(--hair))}
+.ob-q h2{font-family:var(--serif);font-size:30px;letter-spacing:-.01em;margin:0 0 10px}
+.ob-q .qh{font-size:14.5px;color:var(--muted);line-height:1.55;margin-bottom:26px}
+.slider{height:8px;border-radius:6px;position:relative;margin:34px 8px 12px;background:linear-gradient(90deg,var(--hair),var(--accent))}
+.slider.warm{background:linear-gradient(90deg,var(--hair),var(--brand-sky))}
+.slider .knob{width:28px;height:28px;border-radius:50%;background:var(--card);border:2.5px solid var(--accent);position:absolute;top:-10px;
+  box-shadow:0 3px 10px rgba(47,107,237,.35)}
+.slabel{display:flex;justify-content:space-between;font-size:12px;color:var(--faint);margin:0 6px}
+.slabel b{color:var(--ink)}
+.ob-preview{background:color-mix(in srgb,var(--accent) 8%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 18%,transparent);
+  border-radius:18px;padding:22px;text-align:center}
+.ob-preview .pk{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.ob-preview .pv{font-size:22px;font-weight:700;margin-top:8px;font-family:var(--serif)}
+.ob-preview .pd{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+.optrow{display:flex;align-items:center;gap:10px;margin-top:20px;font-size:14px;color:var(--muted)}
+.toggle{width:44px;height:26px;border-radius:999px;background:var(--accent);position:relative;flex:none;cursor:pointer}
+.toggle.off{background:var(--hair)}
+.toggle i{position:absolute;top:2.5px;width:21px;height:21px;border-radius:50%;background:#fff;right:2.5px;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.15s}
+.toggle.off i{right:auto;left:2.5px}
+
+/* ---------- settings ---------- */
+.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.set-card h3{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 14px}
+.set-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-top:1px solid var(--hair);font-size:14px;gap:16px}
+.set-row:first-of-type{border-top:0}
+.set-row .sv{color:var(--muted);font-size:13px}
+.set-slider{flex:1;max-width:200px}
+.pref-slide{height:6px;border-radius:5px;background:linear-gradient(90deg,var(--hair),var(--accent));position:relative}
+.pref-slide .k{width:18px;height:18px;border-radius:50%;background:var(--card);border:2px solid var(--accent);position:absolute;top:-6px}
+.about{font-size:13px;color:var(--muted);line-height:1.6}
+.about .ver{font-size:12px;color:var(--faint);margin-top:8px}
+
+/* ---------- states ---------- */
+.banner{display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:14px;font-size:13.5px;font-weight:600;margin-bottom:18px}
+.banner.stale{background:var(--stale-bg);border:1px solid var(--stale-border);color:var(--stale)}
+.state-center{max-width:460px;margin:40px auto;text-align:center;padding:20px}
+.state-center .sic{width:68px;height:68px;border-radius:20px;background:color-mix(in srgb,var(--accent) 12%,transparent);
+  display:flex;align-items:center;justify-content:center;color:var(--accent);margin:0 auto 20px}
+.state-center.err .sic{background:color-mix(in srgb,var(--poor) 14%,transparent);color:var(--poor)}
+.state-center .sic svg{width:32px;height:32px}
+.state-center h2{font-size:22px;margin:0 0 10px}
+.state-center p{font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 22px}
+.addr-field{display:flex;gap:10px;margin-bottom:12px}
+.addr-field input{flex:1;border:1.5px solid var(--hair);background:var(--card);color:var(--ink);border-radius:13px;padding:13px 15px;font-size:14px;font-family:var(--sans)}
+.muteall{filter:grayscale(.45);opacity:.62}
+.skel{background:linear-gradient(90deg,var(--hair),color-mix(in srgb,var(--hair) 40%,var(--card)),var(--hair));
+  background-size:200% 100%;animation:sh 1.4s infinite;border-radius:12px}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* safety override */
+.safety-card{background:var(--safety-bg);border:1px solid var(--safety-border);border-radius:22px;padding:24px}
+.safety-card .sk{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--safety);display:flex;align-items:center;gap:8px}
+.safety-card .sbig{font-family:var(--serif);font-size:30px;font-weight:700;margin:12px 0 6px;color:var(--safety-ink)}
+.safety-card .ssub{font-size:14px;color:var(--safety-ink);line-height:1.5;max-width:520px}
+
+/* mobile reflow demo */
+.mobile-frame{width:390px;margin:22px auto 0;border-radius:36px;padding:10px;background:#e7ecf4;border:1px solid rgba(15,23,40,.12);box-shadow:var(--shadow-lg)}
+.dark .mobile-frame{background:#0a0c11;border-color:rgba(255,255,255,.08)}
+.mobile-frame .app{border-radius:28px;overflow:hidden;background:var(--bg)}
+.mobile-frame .canvas{padding:16px}
+.mobile-frame .hero-grid,.mobile-frame .dash{grid-template-columns:1fr}
+.mobile-frame .topbar{padding:12px 14px;gap:10px;flex-wrap:wrap}
+.mobile-frame .nav,.mobile-frame .search{display:none}
+.mobile-frame .metrics{grid-template-columns:repeat(2,1fr);gap:10px 0}
+.mobile-frame .ring-wrap{width:104px;height:104px}
+.mobile-frame .ring-wrap svg{width:104px;height:104px}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="wt">
+  <h1 class="wt-h1">Golden Window — Web Wireframe Walkthrough</h1>
+  <p class="wt-lead">A <b>desktop-first website</b>, not a phone port. The week and the timeline finally get room to breathe, and every point is clickable. Same design language as the iOS app: the six-tier comfort scale, the rare <b>Golden</b> celebration, blue for interaction / gold for brand, safety kept separate, and <b>New York serif</b> (<code>ui-serif, Georgia, serif</code>) for the score and verdict. Light &amp; dark both follow the system; each panel is framed as a browser window. Sample data is a bright Brooklyn day for a <b>sun-loving, humidity-averse</b> profile — the Today timeline below is <b>live: hover it, and click a point to pin an hour.</b></p>
+
+  <div class="legend">
+    <span class="pill"><span class="sw" style="background:#D89A1B"></span>9.0+ Golden</span>
+    <span class="pill"><span class="sw" style="background:#248A4D"></span>8.0 Great</span>
+    <span class="pill"><span class="sw" style="background:#48A86C"></span>7.0 Good</span>
+    <span class="pill"><span class="sw" style="background:#9C7C46"></span>5.0 Decent</span>
+    <span class="pill"><span class="sw" style="background:#D95D38"></span>3.0 Poor</span>
+    <span class="pill"><span class="sw" style="background:#B83A2C"></span>0 Bad</span>
+    <span class="pill"><span class="sw" style="background:#2F6BED"></span>Interaction</span>
+    <span class="pill"><span class="sw" style="background:#F2B544"></span>Brand gold</span>
+    <span class="pill"><span class="sw" style="background:#B3261E"></span>Safety (reserved)</span>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="sec-div">0 · Global chrome — the top bar &amp; navigation</div>
+  <p class="sec-sub">One persistent bar on every screen: brand wordmark, primary nav (Today / Week / Settings), the current location + freshness, a city/ZIP search, and a light/dark control. It stays sticky as you scroll a long Today page.</p>
+
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app</div><div class="fmeta">chrome only — full page below</div></div>
+    <div class="fbody"><div class="app">
+      <div class="topbar">
+        <div class="brand"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 20a8 8 0 0116 0z" fill="var(--brand-navy)" opacity=".85"/><circle cx="12" cy="9" r="5" fill="var(--brand-gold)"/><path d="M12 9l3-2" stroke="var(--brand-navy)" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="name">Golden Window</span></div>
+        <nav class="nav"><a class="on" href="#">Today</a><a href="#">Week</a><a href="#">Settings</a></nav>
+        <span class="grow"></span>
+        <div class="loc-chip"><svg class="icon sm" viewBox="0 0 24 24"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><div><div class="lc-name">Brooklyn, NY</div><div class="lc-time">Updated 9:20 AM</div></div></div>
+        <div class="search"><svg class="icon sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="City or ZIP" aria-label="Search location"></div>
+        <div class="seg" role="group" aria-label="Appearance"><button class="on" aria-pressed="true"><svg class="icon sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>Light</button><button aria-pressed="false"><svg class="icon sm" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg>Dark</button></div>
+      </div>
+    </div></div>
+  </div>
+  <div class="a11y"><span class="tag">A11Y</span><span><b>Keyboard:</b> logo, nav, location, search and the light/dark control are all in tab order with visible focus rings. <b>Location</b> is a labeled control; freshness is text, never color-only. The appearance control is a real segmented control (defaults to <i>System</i> in the built version) — this walkthrough already honors <code>prefers-color-scheme</code>.</span></div>
+
+  <!-- ============================================================ -->
+  <div class="sec-div">1 · Today — the hero dashboard (desktop)</div>
+  <p class="sec-sub">Verdict first, then the ordinary weather. The top hero uses the full width: the big serif score + verdict + best-time on the left, the comfort-curve timeline on the right. Beneath it, a real dashboard — right-now, the interpreted metric row, what shapes the day, and a peek at the week — instead of one long phone column.</p>
+
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app</div><div class="fmeta">Today · live timeline</div></div>
+    <div class="fbody"><div class="app" id="today-app">
+      <div class="topbar">
+        <div class="brand"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 20a8 8 0 0116 0z" fill="var(--brand-navy)" opacity=".85"/><circle cx="12" cy="9" r="5" fill="var(--brand-gold)"/></svg></span><span class="name">Golden Window</span></div>
+        <nav class="nav"><a class="on" href="#">Today</a><a href="#">Week</a><a href="#">Settings</a></nav>
+        <span class="grow"></span>
+        <div class="loc-chip"><svg class="icon sm" viewBox="0 0 24 24"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><div><div class="lc-name">Brooklyn, NY</div><div class="lc-time">Updated 9:20 AM</div></div></div>
+        <div class="search"><svg class="icon sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="City or ZIP"></div>
+        <div class="seg"><button class="on">Light</button><button>Dark</button></div>
+      </div>
+      <div class="canvas">
+        <div class="hero-grid">
+          <!-- score -->
+          <section class="card scorecard">
+            <div class="eyebrow-row"><span class="eyebrow">Today · your day score</span>
+              <span class="now-badge c-great" style="border-color:color-mix(in srgb,var(--great) 40%,transparent);background:color-mix(in srgb,var(--great) 12%,transparent)"><span class="nl">NOW</span><span class="nn">8.8</span><span>Great</span></span>
+            </div>
+            <div class="score-row">
+              <div class="ring-wrap"><svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="54" fill="none" stroke="var(--hair)" stroke-width="10"/><circle cx="64" cy="64" r="54" fill="none" stroke="var(--great)" stroke-width="10" stroke-linecap="round" stroke-dasharray="288.4 339.3"/></svg><div class="ring-num"><span class="s">8.5</span><span class="d">/ 10</span></div></div>
+              <div class="verdict"><div class="vw c-great">Great day</div><div class="vsub">Sunny and comfortable all afternoon — close to perfect for how you like it.</div></div>
+            </div>
+            <div class="besttime">Best time <span class="rng c-great">10 AM – 4 PM</span></div>
+          </section>
+          <!-- timeline -->
+          <section class="card tl-card">
+            <div class="tl-head">
+              <div class="tl-window-tag win-sel c-great" style="border-color:var(--brand-gold)"><div class="rng">10 AM – 4 PM</div><div class="phr c-great">Great conditions</div></div>
+              <div class="tl-backup">Also good<br>after 6 PM</div>
+            </div>
+            <div class="tl-wrap" id="wrap-today"><svg id="tl-today" viewBox="0 0 720 190" preserveAspectRatio="none"></svg><div class="tip" id="tip-today"></div></div>
+            <div class="tl-axis"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span></div>
+            <div class="tl-hint">Your personal comfort through the day · hover to inspect, click a point to pin an hour · ☀ sunrise 5:58a  ☾ sunset 8:04p</div>
+            <div class="hourpin" id="hourpin"></div>
+          </section>
+        </div>
+
+        <div class="dash">
+          <section class="card span2 rn">
+            <div><div class="lab">Right now</div><div class="rn-t">72°</div><div class="rn-c">Sunny</div><div class="rn-m">Feels 74° · High 74° · Low 58°</div></div>
+            <svg class="sun" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="30" r="12" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="3" stroke-linecap="round"><path d="M32 8v6M32 46v6M8 30h6M50 30h6M15 13l4 4M45 43l4 4M49 13l-4 4M19 43l-4 4"/></g><path d="M24 44a9 9 0 019-9 9 9 0 018.9 7.5A7 7 0 1141 51H27a6.5 6.5 0 01-3-12z" fill="var(--brand-sky)" opacity=".6"/></svg>
+          </section>
+          <section class="card span4">
+            <div class="lab">What today feels like — for you</div>
+            <div class="metrics">
+              <div class="metric"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 14.8V5a2 2 0 10-4 0v9.8a4 4 0 104 0z"/></svg><div class="k">Temp</div><div class="v">74°</div><div class="d c-good">Near ideal</div></div>
+              <div class="metric"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 18a4 4 0 010-8 5 5 0 019.6-1.6A3.5 3.5 0 1117 18H7z"/></svg><div class="k">Clouds</div><div class="v">10%</div><div class="d c-good">Clear</div></div>
+              <div class="metric"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z"/></svg><div class="k">Humidity</div><div class="v">42%</div><div class="d c-good">Comfortable</div></div>
+              <div class="metric"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 13a6 6 0 0111.7-2A4 4 0 1117 19H7"/><path d="M9 21l-1 1M13 21l-1 1"/></svg><div class="k">Rain</div><div class="v">0%</div><div class="d" style="color:var(--muted)">None</div></div>
+            </div>
+          </section>
+          <section class="card span4">
+            <div class="card-head"><span class="ch-t">What shapes the day</span><a href="#">Why this score? →</a></div>
+            <div class="brk">
+              <div class="brk-row"><div class="brk-head"><span class="brk-l">Bright sun most of the day</span><span class="brk-v c-good">helped a lot</span></div><div class="brk-bar"><div class="brk-fill fill-good" style="width:96%"></div></div></div>
+              <div class="brk-row"><div class="brk-head"><span class="brk-l">Comfortable feels-like near 74°</span><span class="brk-v c-good">helped</span></div><div class="brk-bar"><div class="brk-fill fill-good" style="width:70%"></div></div></div>
+              <div class="brk-row"><div class="brk-head"><span class="brk-l">Low dew point — dry air</span><span class="brk-v c-good">helped</span></div><div class="brk-bar"><div class="brk-fill fill-good" style="width:58%"></div></div></div>
+              <div class="brk-row"><div class="brk-head"><span class="brk-l">Fading light after 6 PM</span><span class="brk-v c-poor">held it back</span></div><div class="brk-bar"><div class="brk-fill fill-poor" style="width:34%"></div></div></div>
+            </div>
+          </section>
+          <section class="card span2">
+            <div class="card-head"><span class="ch-t">This week</span><a href="#">All 7 →</a></div>
+            <div class="wk-mini">
+              <div class="wm"><span class="d">Sun</span><span class="b bg-great">8.5</span><span class="w">Ideal afternoon</span><span class="hl">74/58</span></div>
+              <div class="wm"><span class="d">Mon</span><span class="b bg-decent">6.4</span><span class="w">Clouds move in</span><span class="hl">72/60</span></div>
+              <div class="wm"><span class="d">Wed</span><span class="b gold-badge">9.1</span><span class="w">Best day <span class="spark">✦</span></span><span class="hl">82/63</span></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="note"><b>Layout logic:</b> hero row is a fixed 390px score column + fluid timeline; the dashboard is a 6-column grid (right-now 2, metrics 4, breakdown 4, week-peek 2). The one custom component — the timeline — earns the widest cell. Everything else is standard cards.</div>
+  <div class="a11y"><span class="tag">A11Y</span><span>Score is <b>number + word</b> ("8.5 · Great"), never color alone; every metric pairs a value with an interpreted verdict word. Contrast holds AA in both themes. The dashboard reflows to one column under ~760px (see §7). Ring is decorative; the accessible name is the "8.5 out of 10, Great" text.</span></div>
+
+  <!-- ============================================================ -->
+  <div class="sec-div">2 · Timeline interactions — hover, click-to-pin, scrub</div>
+  <p class="sec-sub">The signature component, and the thing the current build is missing. <b>Hover</b> any point for a tooltip; <b>click</b> to pin a persistent hour-detail popover; <b>drag</b> to scrub. The live Today above already does all three — these two panels freeze the tooltip and the pinned state so they're easy to judge.</p>
+
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app — hover tooltip</div></div>
+    <div class="fbody"><div class="app"><div class="canvas" style="padding:24px 26px">
+      <div class="lab">Hover — lightweight tooltip</div>
+      <section class="card tl-card">
+        <div class="tl-wrap" style="cursor:crosshair"><svg id="tl-tip" viewBox="0 0 720 190" preserveAspectRatio="none"></svg>
+          <div class="tip on" style="left:50%;top:0"><div class="tt">12 PM · peak</div><div class="tr"><span>Sunny</span><b>74°</b></div><div class="tr"><span>Your score</span><b>99</b></div><div class="flag c-great">Peak — perfect for you</div></div>
+        </div>
+        <div class="tl-axis"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span></div>
+      </section>
+    </div></div></div>
+  </div>
+
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app — pinned hour</div></div>
+    <div class="fbody"><div class="app"><div class="canvas" style="padding:24px 26px">
+      <div class="lab">Click a point — persistent hour detail</div>
+      <section class="card tl-card">
+        <div class="tl-wrap"><svg id="tl-pin" viewBox="0 0 720 190" preserveAspectRatio="none"></svg></div>
+        <div class="tl-axis"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span></div>
+        <div class="hourpin on">
+          <div class="hp-top"><span class="hp-t">6:00 PM</span><span class="hp-s c-good">Your score 80 · Good</span><span class="hp-close">×</span></div>
+          <div class="hp-verdict">Pleasant and cooling — still a good time to be out.</div>
+          <div class="hp-metrics">
+            <div class="hm"><div class="k">Feels like</div><div class="v">68°</div><div class="d c-good">Comfortable</div></div>
+            <div class="hm"><div class="k">Sun &amp; sky</div><div class="v">Partly</div><div class="d c-good">Good light</div></div>
+            <div class="hm"><div class="k">Dew point</div><div class="v">54°</div><div class="d c-good">Dry</div></div>
+            <div class="hm"><div class="k">Rain</div><div class="v">0%</div><div class="d" style="color:var(--muted)">None</div></div>
+          </div>
+        </div>
+      </section>
+    </div></div></div>
+  </div>
+  <div class="a11y"><span class="tag">A11Y</span><span>The timeline is one focusable control. <b>Arrow keys</b> move the pinned hour; the tooltip/popover content is announced ("2 PM, sunny, feels 74, your score 99, peak"). A screen-reader summary precedes it: <i>"Best window 10 AM to 4 PM; morning excellent, evening fades."</i> Only the profile's metrics appear in the popover — never a wall of numbers. Hover is enhancement; click/keyboard pinning is the accessible path.</span></div>
+
+  <!-- ============================================================ -->
+  <div class="sec-div">3 · The Week — seven across, big-screen</div>
+  <p class="sec-sub">Where desktop pays off most. Seven day-cards in a row, each scannable at a glance: weekday, sky glyph, score badge in its band color, best window, hi/lo and a one-line "day character." A Golden day (9.0+) gets the full gold-gradient + sparkle treatment so it stands out from a merely-Great one. Hover lifts a card; clicking drills into that day.</p>
+
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app/week</div><div class="fmeta">Week · overview</div></div>
+    <div class="fbody"><div class="app">
+      <div class="topbar">
+        <div class="brand"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5" fill="var(--brand-gold)"/><path d="M4 20a8 8 0 0116 0z" fill="var(--brand-navy)" opacity=".85"/></svg></span><span class="name">Golden Window</span></div>
+        <nav class="nav"><a href="#">Today</a><a class="on" href="#">Week</a><a href="#">Settings</a></nav>
+        <span class="grow"></span>
+        <div class="loc-chip"><svg class="icon sm" viewBox="0 0 24 24"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><div><div class="lc-name">Brooklyn, NY</div><div class="lc-time">Updated 9:20 AM</div></div></div>
+        <div class="seg"><button class="on">Light</button><button>Dark</button></div>
+      </div>
+      <div class="canvas">
+        <div class="lab">Next 7 days · your personal score &amp; best window</div>
+        <div class="week7">
+          <div class="wday"><div class="wn">Today</div><div class="wsky">☀️</div><div class="wbadge bg-great">8.5</div><div class="wband c-great">Great</div><div class="wwin">10a – 4p</div><div class="wchar">Ideal all afternoon, dry air</div><div class="whl">74° / 58°</div></div>
+          <div class="wday"><div class="wn">Mon</div><div class="wsky">⛅️</div><div class="wbadge bg-decent">6.4</div><div class="wband c-decent">Decent</div><div class="wwin">8a – 11a</div><div class="wchar">Clouds move in by midday</div><div class="whl">72° / 60°</div></div>
+          <div class="wday"><div class="wn">Tue</div><div class="wsky">🌧️</div><div class="wbadge bg-poor">4.8</div><div class="wband c-poor">Poor</div><div class="wwin">Brief 5–6p</div><div class="wchar">Showers likely most of day</div><div class="whl">70° / 61°</div></div>
+          <div class="wday sel gold-glow"><div class="wn">Wed</div><div class="wsky">☀️</div><div class="wbadge gold-badge">9.1 <span class="spark">✦</span></div><div class="wband gold-text">Golden</div><div class="wwin">9a – 1p</div><div class="wchar">Best day this week — dry &amp; brilliant</div><div class="whl">82° / 63°</div></div>
+          <div class="wday"><div class="wn">Thu</div><div class="wsky">☀️</div><div class="wbadge bg-good">7.6</div><div class="wband c-good">Good</div><div class="wwin">8a – 11a</div><div class="wchar">Warm sun, muggy by midday</div><div class="whl">85° / 66°</div></div>
+          <div class="wday"><div class="wn">Fri</div><div class="wsky">🌧️</div><div class="wbadge bg-bad">3.6</div><div class="wband c-bad">Bad</div><div class="wwin">No good window</div><div class="wchar">Rain most of the day</div><div class="whl">79° / 65°</div></div>
+          <div class="wday"><div class="wn">Sat</div><div class="wsky">☀️</div><div class="wbadge bg-great">8.4</div><div class="wband c-great">Great</div><div class="wwin">10a – 2p</div><div class="wchar">Crisp, clear, low humidity</div><div class="whl">84° / 67°</div></div>
+        </div>
+        <div class="tl-hint" style="text-align:left;margin-top:16px">Click any day to open its full detail. Friday honestly says "No good window" rather than inventing one.</div>
+      </div>
+    </div></div>
+  </div>
+  <div class="a11y"><span class="tag">A11Y</span><span>Golden isn't signaled by gold alone: the word <b>"Golden"</b> and the <b>✦</b> ride with it (sparkle holds still &amp; bright under Reduce Motion). Each card is a link/button with a full label ("Wednesday, 9.1 Golden, best window 9 AM to 1 PM, high 82 low 63"). The 7-across grid collapses to 2-up, then 1-up, on narrower widths.</span></div>
+
+  <!-- day detail drill-in (Golden Wednesday) -->
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app/week/wed</div><div class="fmeta">Week · day detail (Golden)</div></div>
+    <div class="fbody"><div class="app"><div class="canvas">
+      <div class="lab" style="display:flex;align-items:center;gap:8px"><span style="color:var(--accent);font-weight:700">← Week</span> · Wednesday</div>
+      <div class="hero-grid">
+        <section class="card scorecard gold-glow">
+          <div class="eyebrow-row"><span class="eyebrow gold-text">Your Golden Window</span></div>
+          <div class="score-row">
+            <div class="ring-wrap"><svg viewBox="0 0 128 128"><defs><linearGradient id="goldring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--gold-bright)"/><stop offset=".55" stop-color="var(--golden)"/><stop offset="1" stop-color="var(--gold-deep)"/></linearGradient></defs><circle cx="64" cy="64" r="54" fill="none" stroke="var(--hair)" stroke-width="10"/><circle cx="64" cy="64" r="54" fill="none" stroke="url(#goldring)" stroke-width="10" stroke-linecap="round" stroke-dasharray="308.7 339.3"/></svg><div class="ring-num"><span class="s gold-text">9.1</span><span class="d">/ 10</span></div></div>
+            <div class="verdict"><div class="vw gold-text">Golden <span class="spark">✦</span></div><div class="vsub">A rare one — brilliant sun and dry air line up midday. Your best day this week.</div></div>
+          </div>
+          <div class="besttime">Golden window <span class="rng gold-text">9 AM – 1 PM</span></div>
+        </section>
+        <section class="card tl-card">
+          <div class="tl-head"><div class="tl-window-tag win-sel" style="border-color:var(--brand-gold)"><div class="rng gold-text">9 AM – 1 PM</div><div class="phr gold-text">Golden conditions ✦</div></div></div>
+          <div class="tl-wrap"><svg id="tl-wed" viewBox="0 0 720 190" preserveAspectRatio="none"></svg></div>
+          <div class="tl-axis"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span></div>
+          <div class="tl-hint">Day detail drops "right now" — this is a forecast day, not the current moment.</div>
+        </section>
+      </div>
+      <div class="dash">
+        <section class="card span4">
+          <div class="lab">What Wednesday feels like — for you</div>
+          <div class="metrics">
+            <div class="metric"><div class="k">Temp</div><div class="v">78°</div><div class="d c-good">Near ideal</div></div>
+            <div class="metric"><div class="k">Clouds</div><div class="v">5%</div><div class="d c-golden">Brilliant</div></div>
+            <div class="metric"><div class="k">Humidity</div><div class="v">38%</div><div class="d c-good">Dry</div></div>
+            <div class="metric"><div class="k">Rain</div><div class="v">0%</div><div class="d" style="color:var(--muted)">None</div></div>
+          </div>
+        </section>
+        <section class="card span2">
+          <div class="lab">Day character</div>
+          <div style="font-size:14px;line-height:1.6;color:var(--muted)">Longest unbroken run of sun all week, with the driest air. Comfortable from mid-morning; softens gently after 4 PM.</div>
+        </section>
+      </div>
+    </div></div></div>
+  </div>
+  <div class="note"><b>Day detail = the Today layout minus "right now"</b> (a future day has no current moment). Because the window's own score is 9.1, and only then, it earns the header <b>"Your Golden Window,"</b> the gilded ring, and the gold interior — keeping Golden rare and honest.</div>
+
+  <!-- ============================================================ -->
+  <div class="sec-div">4 · Onboarding — welcome + five preference questions</div>
+  <p class="sec-sub">First run teaches the app what "good weather" means to this person. Web-native two-column: the question and slider on the left, a live "for you" preview on the right that updates as you drag. Skippable to sensible defaults at any point.</p>
+
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app/welcome</div><div class="fmeta">Onboarding · welcome</div></div>
+    <div class="fbody"><div class="app"><div class="canvas"><div class="ob-welcome">
+      <svg class="ob-mark" viewBox="0 0 120 120" fill="none"><circle cx="60" cy="50" r="24" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="5" stroke-linecap="round"><path d="M60 12v10M60 78v10M18 50h10M92 50h10M30 20l7 7M83 73l7 7M90 20l-7 7M37 73l-7 7"/></g><path d="M44 78a16 16 0 0132-2 12 12 0 11-2 24H46a11 11 0 01-2-22z" fill="var(--brand-sky)"/></svg>
+      <h2>Golden Window</h2>
+      <div class="tag">Your best time outside</div>
+      <p>Other apps tell you the weather. This one tells you when <i>you'll</i> enjoy being outside — once it learns what good weather means to you. Five quick questions.</p>
+      <div class="ob-cta"><button class="btn">Get started</button><button class="btn ghost">Use sensible defaults</button></div>
+    </div></div></div></div>
+  </div>
+
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app/welcome — step 1 of 5</div></div>
+    <div class="fbody"><div class="app"><div class="canvas"><div class="ob-q">
+      <div>
+        <div class="stepper"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <h2>What temperature feels perfect?</h2>
+        <div class="qh">Your "feels-like" sweet spot. How fast it gets too hot or cold is handled separately.</div>
+        <div class="slider"><div class="knob" style="left:calc(52% - 14px)"></div></div>
+        <div class="slabel"><span>55°</span><b>74°</b><span>95°</span></div>
+        <div class="optrow"><button class="btn">Next →</button><span style="margin-left:auto;font-size:13px"><a href="#" style="color:var(--accent);text-decoration:none">Skip · use defaults</a></span></div>
+      </div>
+      <div class="ob-preview"><div class="pk">For you, right now</div><div class="pv c-good">Near ideal</div><div class="pd">A 74° afternoon would score at the top of your range.</div></div>
+    </div></div></div></div>
+  </div>
+
+  <div class="note"><b>Steps 2–5 follow the same pattern</b>, each with its own live preview:</div>
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app/welcome — steps 2–5</div></div>
+    <div class="fbody"><div class="app"><div class="canvas"><div class="dash" style="margin-top:0">
+      <section class="card span3"><div class="stepper" style="margin-bottom:14px"><i class="done"></i><i class="on"></i><i></i><i></i><i></i></div><h2 style="font-family:var(--serif);font-size:21px;margin:0 0 6px">How much do you want the sun?</h2><div class="qh" style="margin-bottom:16px">One slider covers sun, clouds, <i>and</i> whether dark hours can ever win.</div><div class="slider"><div class="knob" style="left:calc(84% - 14px)"></div></div><div class="slabel"><span>Clouds / night ok</span><b>Loves sun</b></div><div class="ob-preview" style="margin-top:16px;padding:14px"><div class="pk">For you</div><div class="pv" style="font-size:15px">Rewards clear skies · dark hours score low</div></div></section>
+      <section class="card span3"><div class="stepper" style="margin-bottom:14px"><i class="done"></i><i class="done"></i><i class="on"></i><i></i><i></i></div><h2 style="font-family:var(--serif);font-size:21px;margin:0 0 6px">When does humidity ruin it?</h2><div class="qh" style="margin-bottom:16px">Measured by dew point (stickiness), not just percent.</div><div class="slider"><div class="knob" style="left:calc(24% - 14px)"></div></div><div class="slabel"><b>Hate mugginess</b><span>Doesn't bother me</span></div><div class="ob-preview" style="margin-top:16px;padding:14px"><div class="pk">On a humid day</div><div class="pv c-poor" style="font-size:15px">Flags "Too humid" afternoons</div></div></section>
+      <section class="card span3"><div class="stepper" style="margin-bottom:14px"><i class="done"></i><i class="done"></i><i class="done"></i><i class="on"></i><i></i></div><h2 style="font-family:var(--serif);font-size:21px;margin:0 0 6px">Rain &amp; snow</h2><div class="qh" style="margin-bottom:14px">Two tolerances, kept separate.</div><div style="font-size:12px;font-weight:600;color:var(--muted)">A little rain is…</div><div class="slider" style="margin:12px 8px"><div class="knob" style="left:calc(18% - 14px)"></div></div><div class="slabel"><b>Dealbreaker</b><span>Fine</span></div><div style="font-size:12px;font-weight:600;color:var(--muted);margin-top:14px">Snow is…</div><div class="slider warm" style="margin:12px 8px"><div class="knob" style="left:calc(55% - 14px)"></div></div><div class="slabel"><span>Avoid</span><span>Love it</span></div></section>
+      <section class="card span3"><div class="stepper" style="margin-bottom:14px"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="on"></i></div><h2 style="font-family:var(--serif);font-size:21px;margin:0 0 6px">Does wind bother you? <span style="font-size:12px;font-weight:600;color:var(--faint)">Optional</span></h2><div class="qh" style="margin-bottom:16px">For cyclists and runners. Skip and wind drops out of your score entirely.</div><div class="optrow" style="margin-top:0"><span class="toggle"><i></i></span><span>Count wind against a day</span></div><div class="slider" style="margin-top:24px"><div class="knob" style="left:calc(40% - 14px)"></div></div><div class="slabel"><span>Barely</span><span>A lot</span></div><div class="ob-preview" style="margin-top:16px;padding:14px"><div class="pk">Then location →</div><div class="pv" style="font-size:15px">"Use my location" or type an address</div></div></section>
+    </div></div></div></div>
+  </div>
+  <div class="a11y"><span class="tag">A11Y</span><span>Sliders are native range inputs (arrow-key steppable, labeled min/max/value); the live preview is an <code>aria-live</code> region so its verdict is announced as you adjust. Wind is genuinely optional — the toggle gates the slider. "Use sensible defaults" is always one click away, so no one is trapped in setup.</span></div>
+
+  <!-- ============================================================ -->
+  <div class="sec-div">5 · Settings</div>
+  <p class="sec-sub">Everything editable later: the five preferences, units, location (use-my-location + city/ZIP search + saved place), a reset, and an About with the Open-Meteo credit and version. Two columns on desktop.</p>
+
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app/settings</div><div class="fmeta">Settings</div></div>
+    <div class="fbody"><div class="app">
+      <div class="topbar"><div class="brand"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5" fill="var(--brand-gold)"/><path d="M4 20a8 8 0 0116 0z" fill="var(--brand-navy)" opacity=".85"/></svg></span><span class="name">Golden Window</span></div><nav class="nav"><a href="#">Today</a><a href="#">Week</a><a class="on" href="#">Settings</a></nav><span class="grow"></span><div class="seg"><button class="on">Light</button><button>Dark</button></div></div>
+      <div class="canvas"><div class="set-grid">
+        <section class="card set-card" style="grid-row:span 2">
+          <h3>Your comfort profile</h3>
+          <div class="set-row"><span>Ideal feels-like</span><div class="set-slider"><div class="pref-slide"><div class="k" style="left:52%"></div></div></div><span class="sv">74°</span></div>
+          <div class="set-row"><span>Sun &amp; sky</span><div class="set-slider"><div class="pref-slide"><div class="k" style="left:84%"></div></div></div><span class="sv">Loves sun</span></div>
+          <div class="set-row"><span>Humidity sensitivity</span><div class="set-slider"><div class="pref-slide"><div class="k" style="left:24%"></div></div></div><span class="sv">High</span></div>
+          <div class="set-row"><span>Rain tolerance</span><div class="set-slider"><div class="pref-slide"><div class="k" style="left:18%"></div></div></div><span class="sv">Low</span></div>
+          <div class="set-row"><span>Snow tolerance</span><div class="set-slider"><div class="pref-slide"><div class="k" style="left:55%"></div></div></div><span class="sv">Medium</span></div>
+          <div class="set-row"><span>Wind <span class="sv" style="display:inline">optional</span></span><span class="toggle off"><i></i></span></div>
+        </section>
+        <section class="card set-card">
+          <h3>Units</h3>
+          <div class="set-row"><span>Temperature</span><div class="seg" style="border-radius:12px"><button class="on">°F</button><button>°C</button></div></div>
+        </section>
+        <section class="card set-card">
+          <h3>Location</h3>
+          <div class="set-row"><span>Use my location</span><button class="btn" style="padding:9px 16px;font-size:13px"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Use current</button></div>
+          <div class="set-row" style="display:block"><div class="search" style="width:100%;margin-top:4px"><svg class="icon sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="Search a city or ZIP…"></div></div>
+          <div class="set-row"><span>Saved place</span><span class="sv">129 Mulberry St ›</span></div>
+        </section>
+        <section class="card set-card">
+          <h3>About</h3>
+          <div class="about">Golden Window — a personal weather score and the best time to be outside. Scores and explanations are relative to your recent local weather; safety warnings are absolute.
+            <div style="margin-top:10px">Weather data by <b>Open-Meteo</b>.</div>
+            <div class="ver">Version 0.9 (web) · No account, no tracking</div>
+            <div style="margin-top:14px"><button class="btn ghost" style="padding:10px 16px;font-size:13px;color:var(--poor);border-color:color-mix(in srgb,var(--poor) 40%,transparent)">Reset preferences</button></div>
+          </div>
+        </section>
+      </div></div>
+    </div></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="sec-div">6 · States — loading, denied, error, stale, safety</div>
+  <p class="sec-sub">The non-happy paths, designed as first-class, not afterthoughts.</p>
+
+  <!-- loading -->
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app — loading</div><div class="fmeta">Loading skeleton</div></div>
+    <div class="fbody"><div class="app"><div class="canvas">
+      <div class="hero-grid">
+        <section class="card scorecard"><div class="skel" style="width:55%;height:12px"></div><div class="score-row" style="margin-top:18px"><div class="skel" style="width:128px;height:128px;border-radius:50%"></div><div style="flex:1"><div class="skel" style="width:70%;height:28px"></div><div class="skel" style="width:95%;height:13px;margin-top:12px"></div><div class="skel" style="width:80%;height:13px;margin-top:7px"></div></div></div></section>
+        <section class="card tl-card"><div class="skel" style="width:160px;height:34px;border-radius:12px"></div><div class="skel" style="width:100%;height:150px;margin-top:16px"></div></section>
+      </div>
+      <div class="dash">
+        <div class="card span2"><div class="skel" style="width:80px;height:12px"></div><div class="skel" style="width:100px;height:56px;margin-top:14px"></div></div>
+        <div class="card span4"><div class="skel" style="width:100%;height:88px"></div></div>
+      </div>
+      <div style="text-align:center;color:var(--faint);font-size:13px;margin-top:20px">Reading your forecast…</div>
+    </div></div></div>
+  </div>
+  <div class="note"><b>Loading</b> is the Today layout in skeleton, so nothing jumps when data lands. Shimmer stops entirely under Reduce Motion (static bars).</div>
+
+  <!-- location denied -->
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app — location off</div><div class="fmeta">Location denied</div></div>
+    <div class="fbody"><div class="app"><div class="canvas"><div class="state-center">
+      <div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
+      <h2>Location is off</h2>
+      <p>No problem — tell us where to check. It stays in your browser; coordinates are rounded before any lookup.</p>
+      <div class="addr-field"><input placeholder="Enter a city or ZIP"><button class="btn">Search</button></div>
+      <button class="btn ghost block">Use saved · 129 Mulberry St</button>
+    </div></div></div></div>
+  </div>
+
+  <!-- error -->
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app — error</div><div class="fmeta">Provider error</div></div>
+    <div class="fbody"><div class="app"><div class="canvas"><div class="state-center err">
+      <div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5"/></svg></div>
+      <h2>Couldn't reach the forecast</h2>
+      <p>Open-Meteo didn't respond. Your last saved forecast is still shown below, marked as older — or try again now.</p>
+      <div class="addr-field" style="justify-content:center"><button class="btn">Try again</button><button class="btn ghost">Show last known</button></div>
+    </div></div></div></div>
+  </div>
+
+  <!-- offline / stale -->
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app — stale</div><div class="fmeta">Offline / stale</div></div>
+    <div class="fbody"><div class="app"><div class="canvas">
+      <div class="banner stale"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:var(--stale)"><path d="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5"/></svg>Showing weather from 2 hours ago — couldn't refresh. <a href="#" style="color:var(--stale);margin-left:4px">Retry</a></div>
+      <div class="muteall">
+        <div class="hero-grid">
+          <section class="card scorecard">
+            <div class="eyebrow-row"><span class="eyebrow">Today · last known</span><span class="lc-time" style="color:var(--stale);font-weight:700">7:20 AM (stale)</span></div>
+            <div class="score-row"><div class="ring-wrap"><svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="54" fill="none" stroke="var(--hair)" stroke-width="10"/><circle cx="64" cy="64" r="54" fill="none" stroke="var(--muted)" stroke-width="10" stroke-linecap="round" stroke-dasharray="288.4 339.3"/></svg><div class="ring-num"><span class="s">8.5</span><span class="d">/ 10</span></div></div><div class="verdict"><div class="vw" style="color:var(--muted)">Great day</div><div class="vsub">Based on the last forecast we could reach. Updates the moment you're back online.</div></div></div>
+          </section>
+          <section class="card tl-card"><div class="tl-window-tag" style="border-color:var(--hair)"><div class="rng" style="color:var(--muted)">10 AM – 4 PM</div><div class="phr" style="color:var(--faint)">From 7:20 AM data</div></div><div class="tl-wrap"><svg id="tl-stale" viewBox="0 0 720 190" preserveAspectRatio="none"></svg></div><div class="tl-axis"><span>6a</span><span>12p</span><span>9p</span></div></section>
+        </div>
+      </div>
+    </div></div></div>
+  </div>
+  <div class="note"><b>Stale never masquerades as live:</b> a persistent banner, the freshness time flipped to the caution color, the score ring drained to neutral gray, and the whole screen desaturated as "last known."</div>
+
+  <!-- safety override -->
+  <div class="frame light">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app — severe weather</div><div class="fmeta">Safety override</div></div>
+    <div class="fbody"><div class="app"><div class="canvas">
+      <div class="hero-grid">
+        <section class="safety-card">
+          <div class="sk"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg> Severe thunderstorm warning</div>
+          <div class="sbig">Not a good time to be outside</div>
+          <div class="ssub">Until 6:15 PM · lightning and damaging wind gusts. The usual score is set aside while conditions are dangerous — it returns for the safe evening.</div>
+        </section>
+        <section class="card tl-card">
+          <div class="tl-head"><div class="tl-window-tag" style="border-color:var(--safety-border);background:var(--safety-bg)"><div class="rng" style="color:var(--safety-ink)">Storm 3 – 6 PM</div><div class="phr" style="color:var(--safety)">Unsafe stretch marked</div></div></div>
+          <div class="tl-wrap"><svg id="tl-severe" viewBox="0 0 720 190" preserveAspectRatio="none"></svg></div>
+          <div class="tl-axis"><span>6a</span><span>Noon</span><span>3p</span><span>6p</span><span>9p</span></div>
+          <div class="tl-hint">Curve dims and dashes through the danger; the normal recommendation resumes after it clears.</div>
+        </section>
+      </div>
+    </div></div></div>
+  </div>
+  <div class="note"><b>Safety beats preferences, always.</b> The cheerful number is replaced by a warning in the reserved safety red — never a Golden/Great label beside an active hazard. No weighting can make dangerous weather read as "ideal."</div>
+
+  <!-- ============================================================ -->
+  <div class="sec-div">7 · Dark mode &amp; responsive reflow</div>
+  <p class="sec-sub">Dark is a first-class appearance (same hierarchy, the comfort curve stays the one bit of functional color). And the desktop dashboard collapses gracefully to a single column on phones.</p>
+
+  <!-- forced dark Today -->
+  <div class="frame dark">
+    <div class="fbar"><div class="fdots"><i></i><i></i><i></i></div><div class="furl">goldenwindow.app — dark</div><div class="fmeta">Dark appearance</div></div>
+    <div class="fbody"><div class="app">
+      <div class="topbar"><div class="brand"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5" fill="var(--brand-gold)"/><path d="M4 20a8 8 0 0116 0z" fill="var(--brand-navy)" opacity=".7"/></svg></span><span class="name">Golden Window</span></div><nav class="nav"><a class="on" href="#">Today</a><a href="#">Week</a><a href="#">Settings</a></nav><span class="grow"></span><div class="loc-chip"><svg class="icon sm" viewBox="0 0 24 24"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><div><div class="lc-name">Brooklyn, NY</div><div class="lc-time">Updated 9:20 AM</div></div></div><div class="seg"><button>Light</button><button class="on">Dark</button></div></div>
+      <div class="canvas">
+        <div class="hero-grid">
+          <section class="card scorecard"><div class="eyebrow-row"><span class="eyebrow">Today · your day score</span><span class="now-badge c-great" style="border-color:color-mix(in srgb,var(--great) 40%,transparent);background:color-mix(in srgb,var(--great) 14%,transparent)"><span class="nl">NOW</span><span class="nn">8.8</span><span>Great</span></span></div><div class="score-row"><div class="ring-wrap"><svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="54" fill="none" stroke="var(--hair)" stroke-width="10"/><circle cx="64" cy="64" r="54" fill="none" stroke="var(--great)" stroke-width="10" stroke-linecap="round" stroke-dasharray="288.4 339.3"/></svg><div class="ring-num"><span class="s">8.5</span><span class="d">/ 10</span></div></div><div class="verdict"><div class="vw c-great">Great day</div><div class="vsub">Sunny and comfortable all afternoon.</div></div></div><div class="besttime">Best time <span class="rng c-great">10 AM – 4 PM</span></div></section>
+          <section class="card tl-card"><div class="tl-head"><div class="tl-window-tag win-sel" style="border-color:var(--brand-gold)"><div class="rng c-great">10 AM – 4 PM</div><div class="phr c-great">Great conditions</div></div></div><div class="tl-wrap"><svg id="tl-dark" viewBox="0 0 720 190" preserveAspectRatio="none"></svg></div><div class="tl-axis"><span>6a</span><span>12p</span><span>9p</span></div></section>
+        </div>
+        <div class="dash">
+          <section class="card span2 rn"><div><div class="lab">Right now</div><div class="rn-t">72°</div><div class="rn-c">Sunny</div><div class="rn-m">Feels 74° · High 74° · Low 58°</div></div></section>
+          <section class="card span4"><div class="lab">What today feels like — for you</div><div class="metrics"><div class="metric"><div class="k">Temp</div><div class="v">74°</div><div class="d c-good">Near ideal</div></div><div class="metric"><div class="k">Clouds</div><div class="v">10%</div><div class="d c-good">Clear</div></div><div class="metric"><div class="k">Humidity</div><div class="v">42%</div><div class="d c-good">Comfortable</div></div><div class="metric"><div class="k">Rain</div><div class="v">0%</div><div class="d" style="color:var(--muted)">None</div></div></div></section>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- mobile reflow -->
+  <div class="note"><b>Mobile reflow (~390px):</b> the top bar condenses (nav → a menu, search behind an icon), the hero stacks score over timeline, and the dashboard becomes a single column. Metric row goes 4→2. Same cards, same order, same hierarchy.</div>
+  <div class="mobile-frame"><div class="app">
+    <div class="topbar"><div class="brand"><span class="mark"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5" fill="var(--brand-gold)"/><path d="M4 20a8 8 0 0116 0z" fill="var(--brand-navy)" opacity=".85"/></svg></span><span class="name" style="font-size:16px">Golden Window</span></div><span class="grow"></span><svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+    <div class="canvas">
+      <div class="hero-grid">
+        <section class="card scorecard"><div class="eyebrow-row"><span class="eyebrow">Today · your day score</span><span class="now-badge c-great" style="border-color:color-mix(in srgb,var(--great) 40%,transparent);background:color-mix(in srgb,var(--great) 12%,transparent)"><span class="nl">NOW</span><span class="nn">8.8</span><span>Great</span></span></div><div class="score-row"><div class="ring-wrap"><svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="54" fill="none" stroke="var(--hair)" stroke-width="10"/><circle cx="64" cy="64" r="54" fill="none" stroke="var(--great)" stroke-width="10" stroke-linecap="round" stroke-dasharray="288.4 339.3"/></svg><div class="ring-num"><span class="s" style="font-size:34px">8.5</span><span class="d">/ 10</span></div></div><div class="verdict"><div class="vw c-great" style="font-size:26px">Great day</div><div class="vsub" style="font-size:13px">Sunny and comfortable all afternoon.</div></div></div></section>
+        <section class="card tl-card"><div class="tl-window-tag win-sel" style="border-color:var(--brand-gold)"><div class="rng c-great">10 AM – 4 PM</div><div class="phr c-great">Great conditions</div></div><div class="tl-wrap"><svg id="tl-mob" viewBox="0 0 720 190" preserveAspectRatio="none"></svg></div><div class="tl-axis"><span>6a</span><span>12p</span><span>9p</span></div></section>
+      </div>
+      <div class="dash">
+        <section class="card span6 rn"><div><div class="lab">Right now</div><div class="rn-t" style="font-size:48px">72°</div><div class="rn-c">Sunny</div><div class="rn-m">Feels 74° · High 74° · Low 58°</div></div><svg class="sun" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="30" r="12" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="3" stroke-linecap="round"><path d="M32 8v6M32 46v6M8 30h6M50 30h6M15 13l4 4M45 43l4 4M49 13l-4 4M19 43l-4 4"/></g></svg></section>
+        <section class="card span6"><div class="lab">What today feels like</div><div class="metrics"><div class="metric"><div class="k">Temp</div><div class="v">74°</div><div class="d c-good">Near ideal</div></div><div class="metric"><div class="k">Clouds</div><div class="v">10%</div><div class="d c-good">Clear</div></div><div class="metric"><div class="k">Humidity</div><div class="v">42%</div><div class="d c-good">Comfortable</div></div><div class="metric"><div class="k">Rain</div><div class="v">0%</div><div class="d" style="color:var(--muted)">None</div></div></div></section>
+      </div>
+    </div>
+  </div></div>
+
+  <p class="note" style="margin-top:40px;color:var(--faint)"><b>Wireframe only</b> — sample data, no live forecast. Palette, verbal bands, serif score/verdict, and the safety split match the app's design system. Typography and exact spacing are illustrative and open for the build pass.</p>
+</div>
+
+<script>
+/* ============================================================
+   Shared timeline renderer + interactions
+   ============================================================ */
+const H=[
+ {t:"6 AM",cond:"Clear",feels:60,score:74,flag:"Cool, sun still low",band:"good"},
+ {t:"7 AM",cond:"Sunny",feels:63,score:82,flag:"Warming nicely",band:"great"},
+ {t:"8 AM",cond:"Sunny",feels:66,score:88,flag:"Getting good",band:"great"},
+ {t:"9 AM",cond:"Sunny",feels:69,score:93,flag:"Near ideal",band:"golden"},
+ {t:"10 AM",cond:"Sunny",feels:72,score:97,flag:"Ideal for you",band:"golden"},
+ {t:"11 AM",cond:"Sunny",feels:73,score:98,flag:"Ideal for you",band:"golden"},
+ {t:"12 PM",cond:"Sunny",feels:74,score:99,flag:"Peak — perfect",band:"golden"},
+ {t:"1 PM",cond:"Sunny",feels:74,score:99,flag:"Peak — perfect",band:"golden"},
+ {t:"2 PM",cond:"Sunny",feels:74,score:98,flag:"Ideal for you",band:"golden"},
+ {t:"3 PM",cond:"Sunny",feels:73,score:97,flag:"Ideal for you",band:"golden"},
+ {t:"4 PM",cond:"Sunny",feels:72,score:95,flag:"Still excellent",band:"good"},
+ {t:"5 PM",cond:"Partly cloudy",feels:70,score:88,flag:"A touch of cloud",band:"great"},
+ {t:"6 PM",cond:"Partly cloudy",feels:68,score:80,flag:"Pleasant, cooling",band:"good"},
+ {t:"7 PM",cond:"Clear",feels:65,score:74,flag:"Sun getting low",band:"good"},
+ {t:"8 PM",cond:"Clear",feels:62,score:62,flag:"Near sunset",band:"decent"},
+ {t:"9 PM",cond:"Clear night",feels:60,score:40,flag:"Dark — not your time",band:"poor"},
+];
+const NOW=3, WIN=[4,10], SUNSET=14.1;
+const W=720,H_=190,PADX=18,PADT=16,PADB=150;
+const NS="http://www.w3.org/2000/svg";
+const colX=i=>PADX+i*((W-2*PADX)/(H.length-1));
+const colY=s=>Math.max(PADT,Math.min(PADB,PADB-((s-30)/70)*(PADB-PADT)));
+const CSSV=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function el(n,a){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);return e;}
+function pts(data){return data.map((h,i)=>`${colX(i).toFixed(1)},${colY(h.score).toFixed(1)}`).join(' ');}
+
+function draw(svg,o){
+  o=o||{}; const data=o.data||H; const line=o.line||'#248A4D';
+  const gid='g'+Math.random().toString(36).slice(2,7);
+  const defs=el('defs',{});
+  defs.innerHTML=`<linearGradient id="${gid}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${line}" stop-opacity=".22"/><stop offset="1" stop-color="${line}" stop-opacity="0"/></linearGradient>`;
+  svg.appendChild(defs);
+  const nx=colX(o.sunset!=null?o.sunset:SUNSET);
+  if(o.night!==false)svg.appendChild(el('rect',{x:nx,y:PADT-6,width:(W-PADX)-nx,height:PADB-PADT+6,fill:'#0f1728',opacity:'.05'}));
+  if(o.win){
+    const wx=colX(o.win[0]),ww=colX(o.win[1])-colX(o.win[0]);
+    if(o.golden){
+      const wg='wg'+gid; defs.innerHTML+=`<linearGradient id="${wg}" x1="0" x2="1"><stop offset="0" stop-color="#F6CC5A" stop-opacity=".28"/><stop offset="1" stop-color="#C6870F" stop-opacity=".18"/></linearGradient>`;
+      svg.appendChild(el('rect',{x:wx,y:PADT-6,width:ww,height:PADB-PADT+6,rx:12,fill:`url(#${wg})`,stroke:'#F2B544','stroke-width':'1.5'}));
+    } else {
+      svg.appendChild(el('rect',{x:wx,y:PADT-6,width:ww,height:PADB-PADT+6,rx:12,fill:line,opacity:'.12',stroke:CSSV('--brand-gold'),'stroke-width':'1.5','stroke-opacity':'.5'}));
+    }
+  }
+  if(o.unsafe){
+    svg.appendChild(el('rect',{x:colX(o.unsafe[0]),y:PADT-6,width:colX(o.unsafe[1])-colX(o.unsafe[0]),height:PADB-PADT+6,rx:10,fill:CSSV('--safety'),opacity:'.14'}));
+  }
+  const p=pts(data);
+  if(!o.dashed){
+    svg.appendChild(el('polygon',{points:`${PADX},${PADB} ${p} ${W-PADX},${PADB}`,fill:`url(#${gid})`}));
+    svg.appendChild(el('polyline',{points:p,fill:'none',stroke:o.golden?'url(#gwline)':line,'stroke-width':'3','stroke-linejoin':'round','stroke-linecap':'round'}));
+    if(o.golden){
+      defs.innerHTML+=`<linearGradient id="gwline" x1="0" x2="1"><stop offset="0" stop-color="#F6CC5A"/><stop offset=".55" stop-color="#D89A1B"/><stop offset="1" stop-color="#C6870F"/></linearGradient>`;
+    }
+  } else {
+    // draw solid part then dashed unsafe part
+    svg.appendChild(el('polyline',{points:p,fill:'none',stroke:o.line||'#98A2B3','stroke-width':'2.6','stroke-dasharray':'6 5','stroke-linejoin':'round'}));
+    const tx=el('text',{x:colX((o.unsafe[0]+o.unsafe[1])/2),y:colY(34),'font-size':'12',fill:CSSV('--safety'),'text-anchor':'middle','font-weight':'700'});tx.textContent='unsafe';svg.appendChild(tx);
+  }
+  // sunrise/sunset ticks
+  [ [0.05,'☀'], [o.sunset!=null?o.sunset:SUNSET,'☾'] ].forEach(([i])=>{
+    svg.appendChild(el('line',{x1:colX(i),y1:PADB,x2:colX(i),y2:PADB+7,stroke:CSSV('--brand-gold'),'stroke-width':'2.4'}));
+  });
+  if(o.now!=null){
+    svg.appendChild(el('line',{x1:colX(o.now),y1:PADT-6,x2:colX(o.now),y2:PADB,stroke:o.markC||'#0f1728','stroke-width':'1.2','stroke-dasharray':'3 3',opacity:'.5'}));
+    svg.appendChild(el('circle',{cx:colX(o.now),cy:colY(data[o.now].score),r:'5.5',fill:'#fff',stroke:o.markC||'#0f1728','stroke-width':'2.5'}));
+  }
+}
+
+// Static timelines
+(function(){const s=document.getElementById('tl-tip');if(s)draw(s,{win:WIN,now:6,line:CSSV('--great')||'#248A4D'});})();
+(function(){const s=document.getElementById('tl-pin');if(s)draw(s,{win:WIN,now:12,line:CSSV('--great')||'#248A4D'});})();
+(function(){const s=document.getElementById('tl-stale');if(s)draw(s,{win:WIN,line:'#98A2B3',night:true});})();
+(function(){const s=document.getElementById('tl-dark');if(s)draw(s,{win:WIN,now:NOW,markC:'#e7eaf0',line:CSSV('--great')||'#3FBE72'});})();
+(function(){const s=document.getElementById('tl-mob');if(s)draw(s,{win:WIN,now:NOW,line:CSSV('--great')||'#248A4D'});})();
+
+// Wednesday golden
+const WED=[
+ {score:66},{score:78},{score:88},{score:96},{score:99},{score:98},{score:95},{score:90},{score:84},{score:80},{score:76},{score:70},{score:64},{score:58},{score:50},{score:36}
+].map((d,i)=>({...H[i],score:d.score}));
+(function(){const s=document.getElementById('tl-wed');if(s)draw(s,{data:WED,win:[3,7],golden:true,line:CSSV('--golden')||'#D89A1B'});})();
+
+// Severe
+(function(){
+  const s=document.getElementById('tl-severe');if(!s)return;
+  const D=[74,82,88,93,90,84,70,52,44,50,64,72,80,74,62,40].map((sc,i)=>({...H[i],score:sc}));
+  draw(s,{data:D,unsafe:[9,12],dashed:true,line:CSSV('--faint')||'#98A2B3',night:false});
+})();
+
+// Interactive Today
+(function(){
+  const svg=document.getElementById('tl-today');if(!svg)return;
+  const line=CSSV('--great')||'#248A4D';
+  draw(svg,{win:WIN,line});
+  const hline=el('line',{stroke:'#0f1728','stroke-width':'1.2','stroke-dasharray':'3 3',opacity:'.5'});
+  const hdot=el('circle',{r:'6',fill:'#fff',stroke:line,'stroke-width':'2.5'});
+  svg.appendChild(hline);svg.appendChild(hdot);
+  const wrap=document.getElementById('wrap-today'),tip=document.getElementById('tip-today'),pin=document.getElementById('hourpin');
+  const bandColor={golden:'--golden',great:'--great',good:'--good',decent:'--decent',poor:'--poor',bad:'--bad'};
+  let pinned=null;
+  function move(i){const x=colX(i),y=colY(H[i].score);
+    hline.setAttribute('x1',x);hline.setAttribute('x2',x);hline.setAttribute('y1',PADT-6);hline.setAttribute('y2',PADB);
+    hdot.setAttribute('cx',x);hdot.setAttribute('cy',y);const h=H[i];const bc=CSSV(bandColor[h.band]);
+    tip.innerHTML=`<div class="tt">${h.t}${i===NOW?' · now':''}</div><div class="tr"><span>${h.cond}</span><b>${h.feels}°</b></div><div class="tr"><span>Your score</span><b>${h.score}</b></div><div class="flag" style="color:${bc}">${h.flag}</div>`;
+    const px=(x/W)*wrap.clientWidth;tip.style.left=Math.max(80,Math.min(wrap.clientWidth-80,px))+'px';tip.style.top='0px';tip.classList.add('on');
+  }
+  function showPin(i){const h=H[i];const bc=CSSV(bandColor[h.band]);
+    pin.innerHTML=`<div class="hp-top"><span class="hp-t">${h.t}</span><span class="hp-s" style="color:${bc}">Your score ${h.score}</span><span class="hp-close" id="hpx">×</span></div>
+      <div class="hp-verdict">${h.flag}.</div>
+      <div class="hp-metrics">
+        <div class="hm"><div class="k">Feels like</div><div class="v">${h.feels}°</div><div class="d" style="color:${bc}">${h.feels>=70&&h.feels<=76?'Ideal':(h.feels<66?'Cool':'Warm')}</div></div>
+        <div class="hm"><div class="k">Sun &amp; sky</div><div class="v">${h.cond.split(' ')[0]}</div><div class="d" style="color:${bc}">${h.band==='golden'||h.band==='great'?'Great light':'Dimmer'}</div></div>
+        <div class="hm"><div class="k">Dew point</div><div class="v">54°</div><div class="d c-good">Dry</div></div>
+        <div class="hm"><div class="k">Rain</div><div class="v">0%</div><div class="d" style="color:var(--muted)">None</div></div>
+      </div>`;
+    pin.classList.add('on');
+    document.getElementById('hpx').onclick=(e)=>{e.stopPropagation();pinned=null;pin.classList.remove('on');};
+  }
+  function idx(e){const r=wrap.getBoundingClientRect();const cx=((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width*W;let b=0,bd=1e9;for(let i=0;i<H.length;i++){const d=Math.abs(colX(i)-cx);if(d<bd){bd=d;b=i;}}return b;}
+  wrap.addEventListener('pointermove',e=>{move(idx(e));});
+  wrap.addEventListener('pointerdown',e=>{e.preventDefault();pinned=idx(e);move(pinned);showPin(pinned);});
+  wrap.addEventListener('pointerleave',()=>{move(pinned!=null?pinned:NOW);});
+  move(NOW);
+})();
+</script>
+</body>
+</html>

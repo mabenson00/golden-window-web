@@ -1,147 +1,140 @@
-import { evaluate, scoreText, band, isGolden, sensibleDefault, CONFIG } from './scoring.js';
-import { fetchForecast, geocode, roundCoord, conditionText } from './weather.js';
+import { evaluate, evaluateWeek, scoreText, band, isGolden, sensibleDefault } from './scoring.js';
+import { fetchForecast, geocode, roundCoord } from './weather.js';
 
 const $ = (sel) => document.querySelector(sel);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const NS = 'http://www.w3.org/2000/svg';
+const svgEl = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in (attrs || {})) e.setAttribute(k, attrs[k]); return e; };
 
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
-
-function bandClass(displayed) { return 'band-' + band(displayed).toLowerCase(); }
+const SKY = { sunny: ['☀️', 'Sunny'], partlyCloudy: ['⛅️', 'Partly cloudy'], cloudy: ['☁️', 'Cloudy'], rainy: ['🌧️', 'Rainy'], snowy: ['❄️', 'Snowy'], wintryMix: ['🌨️', 'Wintry mix'] };
+const bandClass = (d) => 'band-' + band(d).toLowerCase();
 
 function fmtTime(ms) {
-  const d = new Date(ms);
-  let h = d.getUTCHours(); const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12; if (h === 0) h = 12;
-  const m = d.getUTCMinutes();
-  return m === 0 ? `${h} ${ampm}` : `${h}:${String(m).padStart(2, '0')} ${ampm}`;
+  const d = new Date(ms); let h = d.getUTCHours(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; const m = d.getUTCMinutes();
+  return m === 0 ? `${h} ${ap}` : `${h}:${String(m).padStart(2, '0')} ${ap}`;
 }
-function windowRange(w) { return `${fmtTime(w.startTime)}–${fmtTime(w.endTime)}`; }
-
-const SKY = {
-  sunny: ['☀️', 'Sunny'], partlyCloudy: ['⛅️', 'Partly cloudy'], cloudy: ['☁️', 'Cloudy'],
-  rainy: ['🌧️', 'Rainy'], snowy: ['❄️', 'Snowy'], wintryMix: ['🌨️', 'Wintry mix'],
-};
+const windowRange = (w) => `${fmtTime(w.startTime)}–${fmtTime(w.endTime)}`;
 
 function ring(displayed) {
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', '0 0 120 120'); svg.setAttribute('class', 'ring');
+  const svg = svgEl('svg', { viewBox: '0 0 120 120', class: 'ring' });
   const golden = isGolden(displayed);
   if (golden) {
-    const defs = document.createElementNS(svgNS, 'defs');
-    const grad = document.createElementNS(svgNS, 'linearGradient');
-    grad.setAttribute('id', 'goldsheen'); grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0'); grad.setAttribute('x2', '1'); grad.setAttribute('y2', '1');
-    [['0', '#F6CC5A'], ['0.5', '#D89A1B'], ['1', '#C6870F']].forEach(([o, col]) => {
-      const s = document.createElementNS(svgNS, 'stop'); s.setAttribute('offset', o); s.setAttribute('stop-color', col); grad.appendChild(s);
-    });
-    defs.appendChild(grad); svg.appendChild(defs);
+    const defs = svgEl('defs'); const g = svgEl('linearGradient', { id: 'gold', x1: '0', y1: '0', x2: '1', y2: '1' });
+    [['0', '#F6CC5A'], ['0.55', '#F2B544'], ['1', '#C6870F']].forEach(([o, c]) => g.appendChild(svgEl('stop', { offset: o, 'stop-color': c })));
+    defs.appendChild(g); svg.appendChild(defs);
   }
-  const track = document.createElementNS(svgNS, 'circle');
-  track.setAttribute('cx', '60'); track.setAttribute('cy', '60'); track.setAttribute('r', '52');
-  track.setAttribute('class', 'ring-track'); svg.appendChild(track);
-  const arc = document.createElementNS(svgNS, 'circle');
-  arc.setAttribute('cx', '60'); arc.setAttribute('cy', '60'); arc.setAttribute('r', '52');
-  arc.setAttribute('class', 'ring-arc ' + bandClass(displayed));
-  const circ = 2 * Math.PI * 52; const frac = Math.max(0, Math.min(1, displayed / 10));
-  arc.setAttribute('stroke-dasharray', `${circ * frac} ${circ}`);
-  arc.setAttribute('transform', 'rotate(-90 60 60)');
-  if (golden) arc.setAttribute('stroke', 'url(#goldsheen)');
+  svg.appendChild(svgEl('circle', { cx: 60, cy: 60, r: 52, class: 'ring-track' }));
+  const circ = 2 * Math.PI * 52, frac = Math.max(0, Math.min(1, displayed / 10));
+  const arc = svgEl('circle', { cx: 60, cy: 60, r: 52, class: 'ring-arc ' + bandClass(displayed), 'stroke-dasharray': `${circ * frac} ${circ}`, transform: 'rotate(-90 60 60)' });
+  if (golden) arc.setAttribute('stroke', 'url(#gold)');
   svg.appendChild(arc);
   return svg;
 }
 
-function timeline(hourly, bestWindow) {
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const W = 340, H = 150, PAD = 6;
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('class', 'timeline');
+function timeline(hourly, best, bandCls) {
+  const W = 560, H = 150, P = 10, BOT = H - 4;
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'timeline', preserveAspectRatio: 'none' });
   const t0 = hourly[0].time, t1 = hourly[hourly.length - 1].time, span = Math.max(1, t1 - t0);
-  const x = (t) => PAD + (t - t0) / span * (W - 2 * PAD);
-  const y = (comfort) => PAD + (1 - comfort / 100) * (H - 2 * PAD);
-  if (bestWindow) {
-    const bx = x(bestWindow.startTime), bw = x(bestWindow.endTime) - bx;
-    const rect = document.createElementNS(svgNS, 'rect');
-    rect.setAttribute('x', bx); rect.setAttribute('y', PAD); rect.setAttribute('width', Math.max(2, bw)); rect.setAttribute('height', H - 2 * PAD);
-    rect.setAttribute('rx', '10'); rect.setAttribute('class', 'tl-window'); svg.appendChild(rect);
+  const x = (t) => P + (t - t0) / span * (W - 2 * P);
+  const y = (c) => P + (1 - c / 100) * (H - 2 * P - 8);
+  const defs = svgEl('defs'); const g = svgEl('linearGradient', { id: 'area', x1: '0', y1: '0', x2: '0', y2: '1' });
+  g.appendChild(svgEl('stop', { offset: '0', 'stop-color': 'var(--io-muted)', 'stop-opacity': '0.18' }));
+  g.appendChild(svgEl('stop', { offset: '1', 'stop-color': 'var(--io-muted)', 'stop-opacity': '0' }));
+  defs.appendChild(g); svg.appendChild(defs);
+  let line = '';
+  hourly.forEach((h, i) => { line += (i ? 'L' : 'M') + x(h.time).toFixed(1) + ' ' + y(h.comfort).toFixed(1) + ' '; });
+  const area = `M${x(hourly[0].time).toFixed(1)} ${BOT} ` + hourly.map(h => `L${x(h.time).toFixed(1)} ${y(h.comfort).toFixed(1)}`).join(' ') + ` L${x(t1).toFixed(1)} ${BOT} Z`;
+  if (best) {
+    const bx = x(best.startTime), bw = Math.max(3, x(best.endTime) - bx);
+    svg.appendChild(svgEl('rect', { x: bx, y: P - 4, width: bw, height: H - 2 * P, rx: 12, class: 'tl-window ' + bandCls }));
   }
-  let d = '';
-  hourly.forEach((h, i) => { d += (i === 0 ? 'M' : 'L') + x(h.time).toFixed(1) + ' ' + y(h.comfort).toFixed(1) + ' '; });
-  const path = document.createElementNS(svgNS, 'path');
-  path.setAttribute('d', d); path.setAttribute('class', 'tl-line'); svg.appendChild(path);
+  svg.appendChild(svgEl('path', { d: area, class: 'tl-area' }));
+  svg.appendChild(svgEl('path', { d: line, class: 'tl-line' }));
   return svg;
 }
 
-function block(labelText, cardEl) {
-  const b = el('div', 'block');
-  b.appendChild(el('div', 'section-label', labelText));
-  b.appendChild(cardEl);
-  return b;
+function block(labelText, cardEl) { const b = el('div', 'block'); b.appendChild(el('div', 'section-label', labelText)); b.appendChild(cardEl); return b; }
+
+function weekdayName(dateKey, isToday) {
+  if (isToday) return 'Today';
+  const d = new Date(dateKey + 'T12:00:00Z');
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()];
+}
+function weekStrip(week) {
+  const wrap = el('div', 'week');
+  week.forEach(d => {
+    const card = el('div', 'card week-day');
+    card.appendChild(el('div', 'wd-name', weekdayName(d.dateKey, d.isToday)));
+    const [emoji] = SKY[d.daySky] || ['☁️'];
+    card.appendChild(el('div', 'wd-emoji', emoji));
+    const badge = el('div', 'wd-badge ' + bandClass(d.displayed));
+    badge.appendChild(el('span', 'serif', scoreText(d.displayed) + (isGolden(d.displayed) ? ' ✦' : '')));
+    card.appendChild(badge);
+    card.appendChild(el('div', 'wd-band ' + bandClass(d.displayed), d.band));
+    card.appendChild(el('div', 'wd-window', d.bestWindow ? windowRange(d.bestWindow) : 'No window'));
+    card.appendChild(el('div', 'wd-hl', `${Math.round(d.high)}° / ${Math.round(d.low)}°`));
+    wrap.appendChild(card);
+  });
+  return wrap;
 }
 
-function render(loc, result) {
+function render(loc, result, current) {
   const root = $('#app'); root.innerHTML = '';
   const disp = result.displayedDayScore;
-  const topgrid = el('div', 'topgrid');
-  const detailgrid = el('div', 'detailgrid');
-
-  const loca = el('div', 'location');
-  loca.appendChild(el('div', 'loc-name', loc.name));
-  loca.appendChild(el('div', 'loc-updated', 'Updated ' + fmtTime(currentCache.time)));
-  root.appendChild(loca);
 
   const hero = el('section', 'card hero');
-  const heroTop = el('div', 'hero-top');
-  heroTop.appendChild(el('div', 'eyebrow', 'TODAY OVERALL'));
+  const left = el('div', 'hero-left');
+  const topRow = el('div', 'hero-eyebrow-row');
+  topRow.appendChild(el('div', 'eyebrow', loc.name.toUpperCase()));
   if (result.now) {
     const nb = el('div', 'now-badge ' + bandClass(result.now.displayedScore));
     nb.appendChild(el('span', 'now-lbl', 'NOW'));
     nb.appendChild(el('span', 'now-num', scoreText(result.now.displayedScore)));
     nb.appendChild(el('span', 'now-band', result.now.band));
-    heroTop.appendChild(nb);
+    topRow.appendChild(nb);
   }
-  hero.appendChild(heroTop);
-  const heroBody = el('div', 'hero-body');
-  const ringWrap = el('div', 'ring-wrap');
-  ringWrap.appendChild(ring(disp));
-  const ringNum = el('div', 'ring-num');
-  ringNum.appendChild(el('span', 'score serif', scoreText(disp)));
-  ringNum.appendChild(el('span', 'score-denom', '/ 10'));
-  ringWrap.appendChild(ringNum);
-  heroBody.appendChild(ringWrap);
-  const verdict = el('div', 'verdict');
-  verdict.appendChild(el('div', 'verdict-word serif ' + bandClass(disp), result.band + (isGolden(disp) ? ' ✦' : '')));
-  const sub = result.bestWindow ? `Best window ${windowRange(result.bestWindow)}` : 'No standout window today';
-  verdict.appendChild(el('div', 'verdict-sub', sub));
-  heroBody.appendChild(verdict);
-  hero.appendChild(heroBody);
-  topgrid.appendChild(hero);
+  left.appendChild(topRow);
+  const scoreRow = el('div', 'score-row');
+  const rw = el('div', 'ring-wrap'); rw.appendChild(ring(disp));
+  const rn = el('div', 'ring-num'); rn.appendChild(el('span', 'score serif', scoreText(disp))); rn.appendChild(el('span', 'score-denom', '/ 10'));
+  rw.appendChild(rn); scoreRow.appendChild(rw);
+  const vd = el('div', 'verdict');
+  vd.appendChild(el('div', 'verdict-word serif ' + bandClass(disp), result.band + (isGolden(disp) ? ' ✦' : '')));
+  vd.appendChild(el('div', 'verdict-sub', result.bestWindow ? `Best time ${windowRange(result.bestWindow)}` : 'No standout window today'));
+  scoreRow.appendChild(vd); left.appendChild(scoreRow);
+  hero.appendChild(left);
 
-  const tlCard = el('section', 'card');
+  const right = el('div', 'hero-right');
+  right.appendChild(el('div', 'section-label tl-title', 'YOUR COMFORT THROUGH THE DAY'));
+  const tlWrap = el('div', 'tl-wrap');
   if (result.bestWindow) {
-    const callout = el('div', 'tl-callout ' + bandClass(result.bestWindow.averageComfort / 10));
-    callout.appendChild(el('div', 'tl-callout-range', windowRange(result.bestWindow)));
-    callout.appendChild(el('div', 'tl-callout-phrase', band(result.bestWindow.averageComfort / 10) + ' conditions'));
-    tlCard.appendChild(callout);
+    const co = el('div', 'tl-callout ' + bandClass(result.bestWindow.averageComfort / 10));
+    co.appendChild(el('span', 'tl-callout-range', windowRange(result.bestWindow)));
+    co.appendChild(el('span', 'tl-callout-phrase', ' · ' + band(result.bestWindow.averageComfort / 10) + ' conditions'));
+    tlWrap.appendChild(co);
   }
-  tlCard.appendChild(timeline(result.hourly, result.bestWindow));
-  tlCard.appendChild(el('div', 'tl-caption', 'Your personal comfort through the day'));
-  topgrid.appendChild(block('BEST TIME TO GO OUTSIDE', tlCard));
+  tlWrap.appendChild(timeline(result.hourly, result.bestWindow, bandClass(result.bestWindow ? result.bestWindow.averageComfort / 10 : disp)));
+  const axis = el('div', 'tl-axis'); ['12a', '6a', '12p', '6p', '11p'].forEach(t => axis.appendChild(el('span', null, t)));
+  tlWrap.appendChild(axis);
+  right.appendChild(tlWrap);
+  hero.appendChild(right);
+  root.appendChild(hero);
+
+  const grid = el('div', 'detailgrid');
 
   const now = el('section', 'card right-now');
-  const cur = currentCache;
-  now.appendChild(el('div', 'rn-temp', Math.round(cur.temperatureF) + '°'));
-  now.appendChild(el('div', 'rn-cond', cur.conditionText));
-  now.appendChild(el('div', 'rn-meta', `Feels ${Math.round(cur.apparentF)}° · High ${Math.round(result.high)}° · Low ${Math.round(result.low)}°`));
-  detailgrid.appendChild(block('RIGHT NOW', now));
+  now.appendChild(el('div', 'rn-temp', Math.round(current.temperatureF) + '°'));
+  now.appendChild(el('div', 'rn-cond', current.conditionText));
+  now.appendChild(el('div', 'rn-meta', `Feels ${Math.round(current.apparentF)}° · High ${Math.round(result.high)}° · Low ${Math.round(result.low)}°`));
+  grid.appendChild(block('RIGHT NOW', now));
 
   const glance = el('section', 'card glance');
   const [emoji, word] = SKY[result.daySky] || ['☁️', 'Cloudy'];
   glance.appendChild(el('div', 'glance-emoji', emoji));
-  const gtxt = el('div', 'glance-txt');
-  gtxt.appendChild(el('div', 'glance-word', word));
-  gtxt.appendChild(el('div', 'glance-hl', `High ${Math.round(result.high)}° · Low ${Math.round(result.low)}°`));
-  glance.appendChild(gtxt);
-  detailgrid.appendChild(block('DAY AT A GLANCE', glance));
+  const gt = el('div', 'glance-txt'); gt.appendChild(el('div', 'glance-word', word)); gt.appendChild(el('div', 'glance-hl', `High ${Math.round(result.high)}° · Low ${Math.round(result.low)}°`));
+  glance.appendChild(gt);
+  grid.appendChild(block('DAY AT A GLANCE', glance));
 
   const brk = el('section', 'card breakdown');
   const maxMag = Math.max(0.0001, ...result.breakdown.map(b => b.magnitude));
@@ -149,41 +142,28 @@ function render(loc, result) {
     const row = el('div', 'brk-row');
     const head = el('div', 'brk-head');
     head.appendChild(el('div', 'brk-label', b.label));
-    const verdictTxt = b.helped ? (b.magnitude / maxMag > 0.6 ? 'helped a lot' : 'helped a little') : (b.magnitude / maxMag > 0.6 ? 'held it back' : 'held it back a little');
-    head.appendChild(el('div', 'brk-verdict ' + (b.helped ? 'good' : 'bad'), verdictTxt));
+    const big = b.magnitude / maxMag > 0.6;
+    head.appendChild(el('div', 'brk-verdict ' + (b.helped ? 'good' : 'bad'), b.helped ? (big ? 'helped a lot' : 'helped a little') : (big ? 'held it back' : 'held it back a little')));
     row.appendChild(head);
-    const bar = el('div', 'brk-bar');
-    const fill = el('div', 'brk-fill ' + (b.helped ? 'good' : 'bad'));
-    fill.style.width = Math.round((b.magnitude / maxMag) * 100) + '%';
-    bar.appendChild(fill); row.appendChild(bar);
-    brk.appendChild(row);
+    const bar = el('div', 'brk-bar'); const fill = el('div', 'brk-fill ' + (b.helped ? 'good' : 'bad')); fill.style.width = Math.round((b.magnitude / maxMag) * 100) + '%';
+    bar.appendChild(fill); row.appendChild(bar); brk.appendChild(row);
   });
-  detailgrid.appendChild(block('WHAT SHAPES THE DAY', brk));
+  grid.appendChild(block('WHAT SHAPES THE DAY', brk));
 
-  root.appendChild(topgrid);
-  root.appendChild(detailgrid);
-  root.appendChild(el('div', 'foot', 'Weather data by Open-Meteo · v0'));
+  root.appendChild(grid);
+  root.appendChild(el('div', 'foot', 'A personal weather score and the best time to be outside · Weather data by Open-Meteo'));
 }
 
-let currentCache = null;
-
 async function load() {
-  const root = $('#app');
-  root.innerHTML = '<div class="loading">Reading your forecast…</div>';
+  const root = $('#app'); root.innerHTML = '<div class="loading">Reading your forecast…</div>';
   let loc = getSavedLoc();
-  try {
-    if (!loc) loc = await getGeoLoc();
-  } catch { loc = null; }
+  try { if (!loc) loc = await getGeoLoc(); } catch { loc = null; }
   if (!loc) loc = DEFAULT_LOC;
   try {
     const forecast = await fetchForecast(roundCoord(loc.lat), roundCoord(loc.lon));
-    currentCache = forecast.current;
-    const profile = getProfile();
-    const result = evaluate(forecast, profile, forecast.updatedAt);
-    render(loc, result);
-  } catch (e) {
-    root.innerHTML = `<div class="loading">Couldn't load the forecast.<br><small>${e.message}</small></div>`;
-  }
+    const result = evaluate(forecast, getProfile(), forecast.updatedAt);
+    render(loc, result, forecast.current);
+  } catch (e) { root.innerHTML = `<div class="loading">Couldn't load the forecast.<br><small>${e.message}</small></div>`; }
 }
 
 function getSavedLoc() { try { return JSON.parse(localStorage.getItem('gw_loc')); } catch { return null; } }
@@ -193,14 +173,9 @@ function getGeoLoc() {
     if (!navigator.geolocation) return reject(new Error('no geo'));
     navigator.geolocation.getCurrentPosition(
       (pos) => { const loc = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'Current location' }; localStorage.setItem('gw_loc', JSON.stringify(loc)); resolve(loc); },
-      () => reject(new Error('denied')), { timeout: 8000 }
-    );
+      () => reject(new Error('denied')), { timeout: 8000 });
   });
 }
-
-window.gwSearch = async (q) => {
-  const loc = await geocode(q);
-  if (loc) { localStorage.setItem('gw_loc', JSON.stringify(loc)); load(); }
-};
-
+window.gwSearch = async (q) => { const loc = await geocode(q); if (loc) { localStorage.setItem('gw_loc', JSON.stringify(loc)); load(); } };
+window.gwUseLocation = () => { localStorage.removeItem('gw_loc'); load(); };
 load();

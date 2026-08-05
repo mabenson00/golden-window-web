@@ -282,32 +282,39 @@ function breakdown(comps, p, c) {
   return out;
 }
 
-export function evaluate(forecast, profile, nowMs, config = CONFIG) {
-  const p = { ...sensibleDefault, ...profile };
-  const c = config;
-  const ageHours = Math.max(0, (nowMs - forecast.updatedAt) / 3600e3);
-  const day = forecast.days[0];
+function scoreDay(day, p, c, ageHours) {
   const fine = resample(day.hours, day.sunrise, day.sunset, c);
   const scored = fine.map(inst => scoreInstant(inst, p, c, ageHours));
   const { best, backup } = findWindow(scored, c);
   const absolute = dayComposition(scored, best, c);
   const displayed = absolute / 10;
-  const bandLabel = band(displayed, c);
+  return {
+    displayed, band: band(displayed, c), absolute, bestWindow: best, backupWindow: backup,
+    hourly: scored, daySky: daySky(day.hours, c), high: day.high, low: day.low, dateKey: day.dateKey,
+  };
+}
 
+export function evaluate(forecast, profile, nowMs, config = CONFIG) {
+  const p = { ...sensibleDefault, ...profile }; const c = config;
+  const ageHours = Math.max(0, (nowMs - forecast.updatedAt) / 3600e3);
+  const d = scoreDay(forecast.days[0], p, c, ageHours);
   let now = null;
   if (forecast.current) {
     const cur = forecast.current;
-    const frac = daylightFraction(cur.time, day.sunrise, day.sunset, cur.isDay ? 1 : 0, c);
-    const inst = { ...cur, localHour: localWallHour(cur.time), daylightFraction: frac };
-    const hs = scoreInstant(inst, p, c, ageHours);
+    const frac = daylightFraction(cur.time, forecast.days[0].sunrise, forecast.days[0].sunset, cur.isDay ? 1 : 0, c);
+    const hs = scoreInstant({ ...cur, localHour: localWallHour(cur.time), daylightFraction: frac }, p, c, ageHours);
     now = { displayedScore: hs.comfort / 10, band: band(hs.comfort / 10, c), comfort: hs.comfort };
   }
-
-  const brk = breakdown(averageComponents(scored.filter(isUsable).map(h => h.components)), p, c);
+  const brk = breakdown(averageComponents(d.hourly.filter(isUsable).map(h => h.components)), p, c);
   return {
-    displayedDayScore: displayed, band: bandLabel, absolute,
-    bestWindow: best, backupWindow: backup, now,
-    hourly: scored, daySky: daySky(day.hours, c), breakdown: brk,
-    high: day.high, low: day.low,
+    displayedDayScore: d.displayed, band: d.band, absolute: d.absolute,
+    bestWindow: d.bestWindow, backupWindow: d.backupWindow, now,
+    hourly: d.hourly, daySky: d.daySky, breakdown: brk, high: d.high, low: d.low,
   };
+}
+
+export function evaluateWeek(forecast, profile, nowMs, config = CONFIG) {
+  const p = { ...sensibleDefault, ...profile }; const c = config;
+  const ageHours = Math.max(0, (nowMs - forecast.updatedAt) / 3600e3);
+  return forecast.days.map((day, i) => ({ ...scoreDay(day, p, c, i === 0 ? ageHours : 0), index: i, isToday: i === 0 }));
 }
