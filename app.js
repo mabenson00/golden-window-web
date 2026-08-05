@@ -306,7 +306,7 @@ function breakdownCard(ev) {
   const maxMag = Math.max(1e-6, ...rows.map(factorMag));
   const body = rows.length ? rows.map(r => { const cls = r.helped ? 'good' : 'poor'; return `<div class="brk-row"><div class="brk-head"><span class="brk-l">${r.label}</span><span class="brk-v c-${cls}">${factorTag(r)}</span></div><div class="brk-bar"><div class="brk-fill fill-${cls}" style="width:${Math.round(Math.max(3, Math.min(100, factorMag(r) / maxMag * 100)))}%"></div></div></div>`; }).join('')
     : `<div class="c-muted" style="font-size:14px">Nothing stands out either way today.</div>`;
-  return el('section', { class: 'card span4', html: `<div class="card-head"><span class="ch-t">What helped, what held it back</span></div><div class="brk">${body}</div>` });
+  return el('section', { class: 'card span4', html: `<div class="card-head"><span class="ch-t">What helped, what held it back</span><span style="font-size:12px;color:var(--faint)">across the day</span></div><div class="brk">${body}</div>` });
 }
 
 function weekdayName(ev) { return ev.isToday ? 'Today' : new Date(ev.rawHours[0].time).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }); }
