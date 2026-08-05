@@ -16,6 +16,8 @@ let profile = { ...sensibleDefault, ...store.get('gw.profile', {}) };
 let location = store.get('gw.loc', null);
 let units = store.get('gw.units', 'F');
 let cache = store.get('gw.cache', null);
+let onboarded = store.get('gw.onboarded', false) || store.get('gw.profile', null) !== null;
+let ob = null;
 
 let forecast = null;
 let fetchedReal = 0;
@@ -587,7 +589,156 @@ async function load() {
   route();
 }
 
-function init() {
+function obProfile() {
+  return { ...sensibleDefault, idealFeelsLikeF: Math.round(ob.ideal), heatSensitivity: ob.tempSens, coldSensitivity: ob.tempSens, sunPreference: ob.sun, mugginessSensitivity: ob.mug, rainTolerance: ob.rain, snowTolerance: ob.snow, windSensitivity: ob.windSens, importanceWind: ob.windCares ? 1 : 0 };
+}
+function obSample(fields, forceWind) {
+  const t = Date.UTC(2024, 5, 15, 12, 0, 0);
+  const p = obProfile(); if (forceWind) p.importanceWind = 1;
+  const mk = time => ({ time, dateKey: '2024-06-15', temperatureF: fields.apparentF, apparentF: fields.apparentF, dewF: fields.dewF, humidity: 0.5, cloud: fields.cloud, precipProb: fields.precipProb, precipMM: fields.precipMM, weatherCode: fields.code, windMph: fields.windMph ?? 4, windGustMph: 4, isDay: fields.daylight, aqi: 30, conditionText: '' });
+  const day = { dateKey: '2024-06-15', sunrise: t - 6 * 3600e3, sunset: t + 6 * 3600e3, high: fields.apparentF + 4, low: fields.apparentF - 10, code: fields.code, hours: [mk(t), mk(t + 3600e3)] };
+  const res = evaluate({ updatedAt: t, current: mk(t), days: [day], latitude: 0, longitude: 0 }, p, t);
+  const s = res.hourly.reduce((b, h) => Math.abs(h.time - t) < Math.abs(b.time - t) ? h : b, res.hourly[0]);
+  return s.components;
+}
+const obVerdict = (s, cond, opts) => ({ text: opts.find(o => s >= o[0])[1], cls: compCls(s), condition: cond });
+function vTemp() { return obVerdict(obSample({ apparentF: 84, dewF: 52, cloud: 0.15, precipProb: 0, precipMM: 0, code: 1, daylight: true }).temperature, '84°F', [[0.82, 'still feels great'], [0.6, 'feels comfortable'], [0.38, 'starts to feel warm'], [0, 'feels too warm']]); }
+function vSun() { return obVerdict(obSample({ apparentF: 70, dewF: 50, cloud: 0.7, precipProb: 0, precipMM: 0, code: 3, daylight: true }).sunSky, '70% cloud cover', [[0.85, "clouds don't bother you"], [0.6, "you'd want more sun"], [0, "you'd really miss the sun"]]); }
+function vMug() { return obVerdict(obSample({ apparentF: 78, dewF: 70, cloud: 0.4, precipProb: 0, precipMM: 0, code: 2, daylight: true }).mugginess, '70°F dew point', [[0.7, "you'd barely notice"], [0.45, "you'd feel the mugginess"], [0, 'flagged as too muggy']]); }
+function vRain() { return obVerdict(obSample({ apparentF: 60, dewF: 55, cloud: 0.9, precipProb: 0.6, precipMM: 1.5, code: 61, daylight: true }).precipitation, '60% chance of rain', [[0.7, "wouldn't stop you"], [0.4, "would give you pause"], [0, 'would keep you in']]); }
+function vSnow() { return obVerdict(obSample({ apparentF: 30, dewF: 26, cloud: 0.9, precipProb: 0.6, precipMM: 1.5, code: 71, daylight: true }).precipitation, 'snow at 30°F', [[0.7, "you'd head out anyway"], [0.4, "you'd think twice"], [0, "you'd rather skip it"]]); }
+function vWind() { return obVerdict(obSample({ apparentF: 66, dewF: 48, cloud: 0.3, precipProb: 0, precipMM: 0, code: 1, daylight: true, windMph: 14 }, true).wind ?? 1, '14 mph wind', [[0.7, 'barely slows you down'], [0.5, "you'd feel the gusts"], [0.3, 'a real headwind'], [0, 'strong wind ruins it']]); }
+
+function obChip(fn) {
+  const c = el('div', {});
+  const set = () => { const v = fn(); c.className = 'ob-chip c-' + v.cls; c.innerHTML = `<span class="ob-chip-k">${v.condition}</span><span class="ob-chip-v">${v.text}</span>`; };
+  set();
+  return { el: c, set };
+}
+function obSlider({ min = 0, max = 1, step = 0.01, value, caption, left, right, boldLeft, onInput }) {
+  const inp = el('input', { type: 'range', min, max, step, value, oninput: e => onInput(parseFloat(e.target.value)) });
+  return el('div', { class: 'ob-slider' }, [
+    caption ? el('div', { class: 'ob-cap' }, [caption]) : null,
+    inp,
+    el('div', { class: 'ob-slabel' }, [el('span', { class: boldLeft ? 'strong' : '' }, [left]), el('span', {}, [right])]),
+  ]);
+}
+function obHeader(q, hint) { return el('div', { class: 'ob-header', html: `<h2>${q}</h2><p>${hint}</p>` }); }
+
+function obStepContent() {
+  switch (ob.step) {
+    case 0: return el('div', { class: 'ob-welcome', html: `<div class="ob-art">${glyphSVG('partly')}</div><h1>Golden Window</h1><p>Other apps tell you the weather. This one tells you when <i>you'll</i> enjoy being outside — once it learns what good weather means to you. A few quick questions.</p>` });
+    case 1: {
+      const node = el('div', { class: 'ob-step' }, [obHeader('What temperature feels perfect?', 'Your feels-like sweet spot. How fast it starts to feel too hot or cold is a separate dial below.')]);
+      const big = el('div', { class: 'ob-big' }, [`${Math.round(ob.ideal)}°`]);
+      const chip = obChip(vTemp);
+      node.append(big,
+        obSlider({ min: 45, max: 90, step: 1, value: ob.ideal, left: '45°', right: '90°', onInput: v => { ob.ideal = v; big.textContent = `${Math.round(v)}°`; chip.set(); } }),
+        obSlider({ value: ob.tempSens, caption: 'How quickly does off-ideal get uncomfortable?', left: 'Easygoing', right: 'Very sensitive', onInput: v => { ob.tempSens = v; chip.set(); } }),
+        chip.el);
+      return node;
+    }
+    case 2: {
+      const chip = obChip(vSun);
+      return el('div', { class: 'ob-step' }, [obHeader('How much do you want the sun?', 'One slider covers sun, clouds, and whether dark hours can ever win. Toward the top, only daylight scores well; toward the bottom, cloudy and even night hours become fine.'),
+        obSlider({ value: ob.sun, left: 'Clouds / night ok', right: 'Loves sun', onInput: v => { ob.sun = v; chip.set(); } }), chip.el]);
+    }
+    case 3: {
+      const chip = obChip(vMug);
+      return el('div', { class: 'ob-step' }, [obHeader('When does humidity ruin it?', 'On warm days humidity already counts toward the feels-like temperature. This is an extra way to tell us how much it bothers you.'),
+        obSlider({ value: ob.mug, left: "Doesn't bother me", right: 'I hate mugginess', onInput: v => { ob.mug = v; chip.set(); } }), chip.el]);
+    }
+    case 4: {
+      const rc = obChip(vRain), sc = obChip(vSnow);
+      return el('div', { class: 'ob-step' }, [obHeader('Rain & snow', 'Two quick tolerances, kept separate — plenty of people love snow but not rain.'),
+        obSlider({ value: ob.rain, caption: 'A little rain is…', left: 'A dealbreaker', right: 'Fine', boldLeft: true, onInput: v => { ob.rain = v; rc.set(); } }), rc.el,
+        obSlider({ value: ob.snow, caption: 'Snow is…', left: 'Avoid', right: 'Love it', onInput: v => { ob.snow = v; sc.set(); } }), sc.el]);
+    }
+    case 5: {
+      const node = el('div', { class: 'ob-step' }, [obHeader('Do you care about wind?', "Cyclists and runners often mind a stiff headwind. If wind isn't your concern, skip it — it won't affect your scores at all. (The chill from wind is already in the feels-like temperature.)"),
+        el('div', { class: 'ob-windicon' + (ob.windCares ? ' on' : ''), html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:40px;height:40px"><path d="M3 8h11a3 3 0 10-3-3M3 16h15a3 3 0 11-3 3M3 12h7"/></svg>' })]);
+      if (ob.windCares) {
+        const chip = obChip(vWind);
+        node.append(obSlider({ value: ob.windSens, caption: 'How much does a strong wind bother you?', left: 'A light breeze is fine', right: 'Strong wind ruins it', onInput: v => { ob.windSens = v; chip.set(); } }), chip.el,
+          el('button', { class: 'ob-link', onclick: () => { ob.windCares = false; obRender(); } }, ["Actually, I don't care about wind"]));
+      } else {
+        node.append(el('p', { class: 'ob-note' }, ['Wind is off by default. Choose “Wind matters to me” to set how sensitive you are, or skip to leave it out.']));
+      }
+      return node;
+    }
+    case 6: {
+      const node = el('div', { class: 'ob-loc' }, [
+        el('div', { class: 'ob-loc-icon', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:44px;height:44px"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>' }),
+        obHeader(ob.sub === 'ask' ? 'Where are you?' : 'Enter a location', 'Used only to fetch the forecast. It stays in your browser, and coordinates are rounded before any lookup.'),
+      ]);
+      if (ob.sub === 'ask') {
+        node.append(el('div', { class: 'ob-privacy', html: `<div class="ob-priv-k">Your privacy</div><div class="ob-priv-v">Only to fetch your forecast · never in the background · never sold or shared</div>` }));
+      } else {
+        const inp = el('input', { class: 'addr-in', placeholder: 'City, ZIP, or address', value: ob.addr, oninput: e => ob.addr = e.target.value, onkeydown: e => { if (e.key === 'Enter') obSubmitAddress(); } });
+        node.append(el('div', { class: 'addr-field' }, [inp, el('button', { class: 'btn', onclick: obSubmitAddress }, [ob.searching ? '…' : 'Use this location'])]));
+        if (ob.err) node.append(el('div', { class: 'err-inline' }, [ob.err]));
+        node.append(el('button', { class: 'ob-link', onclick: () => { ob.sub = 'ask'; ob.err = ''; obRender(); } }, ['Back to location options']));
+      }
+      return node;
+    }
+  }
+}
+
+function obFooter() {
+  const P = (t, fn) => el('button', { class: 'btn block', onclick: fn }, [t]);
+  const G = (t, fn) => el('button', { class: 'btn ghost block', onclick: fn }, [t]);
+  const f = el('div', { class: 'ob-footer' });
+  if (ob.step === 0) f.append(P('Get started', () => obGo(1)), G('Use sensible defaults', obUseDefaults));
+  else if (ob.step === 5) ob.windCares ? f.append(P('Next', obAdvance)) : f.append(P('Wind matters to me', () => { ob.windCares = true; obRender(); }), G("I don't care about wind", () => { ob.windCares = false; obAdvance(); }));
+  else if (ob.step === 6) {
+    if (ob.sub === 'ask') f.append(ob.locating ? el('div', { class: 'ob-locating' }, ['Getting your location…']) : P('Use current location', obUseLocation), G('Enter an address instead', () => { ob.sub = 'addressEntry'; ob.err = ''; obRender(); }));
+    else f.append(G('Skip for now', finishOnboarding));
+  } else f.append(P('Next', obAdvance));
+  return f;
+}
+
+function obRender() {
+  const root = $('#root'); if (!root) return;
+  root.innerHTML = '';
+  const top = el('div', { class: 'ob-top' }, [
+    ob.step > 1 ? el('button', { class: 'ob-back', onclick: obBack }, ['‹ Back']) : null,
+    el('span', { class: 'grow' }),
+    ob.step > 0 ? el('button', { class: 'ob-skip', onclick: finishOnboarding }, ['Skip']) : null,
+  ]);
+  const content = el('div', { class: 'ob-content' });
+  if (ob.step >= 1) { const d = el('div', { class: 'ob-dots' }); for (let i = 0; i < 6; i++) d.append(el('span', { class: 'ob-dot' + (i < ob.step - 1 ? ' done' : i === ob.step - 1 ? ' on' : '') })); content.append(d); }
+  content.append(obStepContent());
+  root.append(el('div', { class: 'ob' }, [top, content, obFooter()]));
+}
+
+function obGo(step) { ob.step = step; ob.sub = 'ask'; obRender(); }
+function obAdvance() { ob.step < 6 ? obGo(ob.step + 1) : finishOnboarding(); }
+function obBack() { if (ob.step > 0) obGo(ob.step - 1); }
+function obUseDefaults() { profile = { ...sensibleDefault }; store.set('gw.profile', profile); store.set('gw.onboarded', true); ob = null; boot(); }
+function finishOnboarding() { profile = obProfile(); store.set('gw.profile', profile); store.set('gw.onboarded', true); ob = null; boot(); }
+function obUseLocation() {
+  if (!navigator.geolocation) { ob.sub = 'addressEntry'; obRender(); return; }
+  ob.locating = true; obRender();
+  navigator.geolocation.getCurrentPosition(
+    pos => { location = { lat: roundCoord(pos.coords.latitude), lon: roundCoord(pos.coords.longitude), name: 'Current location' }; store.set('gw.loc', location); finishOnboarding(); },
+    () => { ob.locating = false; ob.sub = 'addressEntry'; obRender(); }, { timeout: 8000 });
+}
+async function obSubmitAddress() {
+  const q = (ob.addr || '').trim(); if (!q) return;
+  ob.err = ''; ob.searching = true; obRender();
+  try {
+    const r = await geocode(q);
+    if (!r) { ob.searching = false; ob.err = "We couldn't find that place. Try a city, ZIP code, or full address."; obRender(); return; }
+    location = { lat: r.lat, lon: r.lon, name: r.name }; store.set('gw.loc', location); finishOnboarding();
+  } catch { ob.searching = false; ob.err = "Couldn't look up that address. Check your connection and try again."; obRender(); }
+}
+
+function startOnboarding() {
+  ob = { step: 0, sub: 'ask', ideal: sensibleDefault.idealFeelsLikeF, tempSens: (sensibleDefault.heatSensitivity + sensibleDefault.coldSensitivity) / 2, sun: sensibleDefault.sunPreference, mug: sensibleDefault.mugginessSensitivity, rain: sensibleDefault.rainTolerance, snow: sensibleDefault.snowTolerance, windSens: sensibleDefault.windSensitivity, windCares: sensibleDefault.importanceWind > 0, addr: '', err: '', locating: false, searching: false };
+  obRender();
+}
+
+function boot() {
   window.addEventListener('hashchange', route);
   if (cache && cache.forecast) { forecast = cache.forecast; fetchedReal = cache.fetchedReal || 0; stale = (Date.now() - fetchedReal) > STALE_MS; }
   route();
@@ -596,5 +747,7 @@ function init() {
     pos => { location = { lat: roundCoord(pos.coords.latitude), lon: roundCoord(pos.coords.longitude), name: 'Current location' }; store.set('gw.loc', location); load(); },
     () => {}, { timeout: 8000 });
 }
+
+function init() { if (onboarded) boot(); else startOnboarding(); }
 
 init();
