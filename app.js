@@ -65,27 +65,30 @@ function factorEffect(r) { const neutral = CAN_HELP[r.factor] ? 0.5 : 1.0; retur
 function factorMag(r) { return Math.abs(factorEffect(r)); }
 function factorTag(r) { const neutral = CAN_HELP[r.factor] ? 0.5 : 1.0; const norm = Math.min(1, Math.abs(r.score - neutral) / neutral); const intensity = norm >= 0.6 ? ' a lot' : (norm < 0.3 ? ' a little' : ''); return (r.helped ? 'helped' : 'held it back') + intensity; }
 
-function skyKind(code, isDay) {
-  if ([95, 96, 99].includes(code)) return 'storm';
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
-  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
-  if ([45, 48, 3].includes(code)) return 'cloud';
-  if (code === 2) return isDay ? 'partly' : 'cloud';
-  return isDay ? 'sun' : 'moon';
-}
 const CLOUD_G = '<g fill="var(--faint)"><circle cx="24" cy="27" r="10"/><circle cx="38" cy="23" r="12"/><rect x="20" y="26" width="27" height="12" rx="6"/></g>';
-function currentGlyph(code, isDay) {
-  const kind = skyKind(code, isDay);
-  const body = {
-    sun: '<circle cx="32" cy="30" r="12" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="3" stroke-linecap="round"><path d="M32 8v6M32 46v6M8 30h6M50 30h6M15 13l4 4M45 43l4 4M49 13l-4 4M19 43l-4 4"/></g>',
-    moon: '<path d="M46 38A16 16 0 1126 14a13 13 0 0020 24z" fill="var(--brand-gold)"/>',
-    cloud: '<g fill="var(--faint)"><circle cx="24" cy="34" r="11"/><circle cx="39" cy="30" r="13"/><rect x="20" y="33" width="30" height="13" rx="6.5"/></g>',
-    partly: '<circle cx="27" cy="25" r="9" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="2.6" stroke-linecap="round"><path d="M27 9v5M11 25h5M15 13l3.5 3.5M39 13l-3.5 3.5"/></g><g fill="var(--faint)"><circle cx="33" cy="40" r="10"/><circle cx="45" cy="37" r="12"/><rect x="29" y="40" width="24" height="11" rx="5.5"/></g>',
-    rain: CLOUD_G + '<g stroke="var(--brand-sky)" stroke-width="3.2" stroke-linecap="round"><path d="M25 44l-2.5 7M35 44l-2.5 7M45 44l-2.5 7"/></g>',
-    snow: CLOUD_G + '<g fill="var(--brand-sky)"><circle cx="25" cy="48" r="2.4"/><circle cx="35" cy="50" r="2.4"/><circle cx="45" cy="48" r="2.4"/></g>',
-    storm: CLOUD_G + '<path d="M35 42l-9 11h7l-3 8 11-13h-7l3-6z" fill="var(--brand-gold)"/>',
-  }[kind];
-  return `<svg class="sun" viewBox="0 0 64 64" fill="none">${body}</svg>`;
+const GLYPHS = {
+  sun: '<circle cx="32" cy="30" r="12" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="3" stroke-linecap="round"><path d="M32 8v6M32 46v6M8 30h6M50 30h6M15 13l4 4M45 43l4 4M49 13l-4 4M19 43l-4 4"/></g>',
+  moon: '<path d="M46 38A16 16 0 1126 14a13 13 0 0020 24z" fill="var(--brand-gold)"/>',
+  cloud: '<g fill="var(--faint)"><circle cx="24" cy="34" r="11"/><circle cx="39" cy="30" r="13"/><rect x="20" y="33" width="30" height="13" rx="6.5"/></g>',
+  partly: '<circle cx="27" cy="25" r="9" fill="var(--brand-gold)"/><g stroke="var(--brand-gold)" stroke-width="2.6" stroke-linecap="round"><path d="M27 9v5M11 25h5M15 13l3.5 3.5M39 13l-3.5 3.5"/></g><g fill="var(--faint)"><circle cx="33" cy="40" r="10"/><circle cx="45" cy="37" r="12"/><rect x="29" y="40" width="24" height="11" rx="5.5"/></g>',
+  rain: CLOUD_G + '<g stroke="var(--brand-sky)" stroke-width="3.2" stroke-linecap="round"><path d="M25 44l-2.5 7M35 44l-2.5 7M45 44l-2.5 7"/></g>',
+  snow: CLOUD_G + '<g fill="var(--brand-sky)"><circle cx="25" cy="48" r="2.4"/><circle cx="35" cy="50" r="2.4"/><circle cx="45" cy="48" r="2.4"/></g>',
+  storm: CLOUD_G + '<path d="M35 42l-9 11h7l-3 8 11-13h-7l3-6z" fill="var(--brand-gold)"/>',
+};
+function glyphSVG(kind) { return `<svg class="sun" viewBox="0 0 64 64" fill="none">${GLYPHS[kind] || GLYPHS.cloud}</svg>`; }
+
+function currentSky(c) {
+  const type = precipType(c.weatherCode), pct = c.cloud * 100;
+  if ([95, 96, 99].includes(c.weatherCode)) return { text: 'Thunderstorms', kind: 'storm' };
+  if (type !== 'none' && c.precipProb >= 0.35) {
+    if (type === 'snow') return { text: 'Snow', kind: 'snow' };
+    if (type === 'mixed' || type === 'freezing') return { text: 'Wintry mix', kind: 'snow' };
+    return { text: 'Rain', kind: 'rain' };
+  }
+  if (pct < 20) return { text: 'Clear', kind: c.isDay ? 'sun' : 'moon' };
+  if (pct < 50) return { text: 'Partly cloudy', kind: c.isDay ? 'partly' : 'cloud' };
+  if (pct < 80) return { text: 'Cloudy', kind: 'cloud' };
+  return { text: 'Overcast', kind: 'cloud' };
 }
 
 const DAY_SKY_TEXT = { sunny: 'Sunny', partlyCloudy: 'Partly cloudy', cloudy: 'Cloudy', rainy: 'Rainy', snowy: 'Snowy', wintryMix: 'Wintry mix' };
@@ -310,10 +313,10 @@ function metricsInner(ev) {
 }
 
 function nowCard(ev) {
-  const c = forecast.current;
+  const c = forecast.current, sky = currentSky(c);
   return el('section', { class: 'card nowcard', html:
     `<div class="now-left"><div class="rn-head"><span class="lab" style="margin:0">Right now</span>${nowPill(ev.now, 'FOR YOU')}</div>
-       <div class="now-mainrow"><div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${c.conditionText}</div></div>${currentGlyph(c.weatherCode, c.isDay)}</div></div>
+       <div class="now-mainrow"><div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${sky.text}</div></div>${glyphSVG(sky.kind)}</div></div>
      <div class="now-right"><div class="lab">How it feels — for you</div>${metricsInner(ev)}</div>` });
 }
 
@@ -345,13 +348,6 @@ function weekMiniCard(week) {
   const rows = week.slice(0, 4).map(d => { const cls = bandCls(d.displayedDayScore), g = isGolden(d.displayedDayScore);
     return `<a href="#/week/${d.index}"><span class="d">${weekdayName(d)}</span><span class="b ${g ? 'gold-badge' : 'bg-' + cls}">${scoreText(d.displayedDayScore)}${g ? ' <span class="spark">✦</span>' : ''}</span><span class="w">${windowText(d)}</span><span class="hl">${T(d.high)}/${T(d.low)}</span></a>`; }).join('');
   return el('section', { class: 'card span2', html: `<div class="card-head"><span class="ch-t">This week</span><a href="#/week">All 7 →</a></div><div class="wk-mini">${rows}</div>` });
-}
-
-function rightNowCard(ev) {
-  const c = forecast.current;
-  return el('section', { class: 'card span2 rn', html:
-    `<div class="rn-main"><div class="rn-head"><span class="lab" style="margin:0">Right now</span>${nowPill(ev.now, 'FOR YOU')}</div><div class="rn-t">${Ts(c.temperatureF)}</div><div class="rn-c">${c.conditionText}</div></div>
-     ${currentGlyph(c.weatherCode, c.isDay)}` });
 }
 
 function nowIndexFor(ev) {
