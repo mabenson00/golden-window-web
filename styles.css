@@ -10,26 +10,6 @@
   --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --serif:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
-.dark{
-  --bg:#0C0E14; --card:#171B23; --ink:#F2F4F8; --muted:#98A2B3; --faint:#6B7480; --hair:#262B35;
-  --golden:#F2B544; --great:#3FBE72; --good:#63C98A; --decent:#A9A390; --poor:#E9744F; --bad:#E0533F;
-  --gold-bright:#FCD873; --gold-deep:#D79A1E;
-  --accent:#4B82F3; --brand-gold:#F6C65B; --brand-navy:#EAF0F8; --brand-sky:#78A9DC; --brand-pale:#1A2436;
-  --safety:#F05B50; --safety-bg:#2A1512; --safety-border:#5A2A22; --safety-ink:#F3B4A8;
-  --stale:#D8B85A; --stale-bg:#241E10; --stale-border:#4A3F1C;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.4);
-  --shadow-lg:0 24px 60px rgba(0,0,0,.55);
-}
-@media (prefers-color-scheme:dark){:root:not(.light){
-  --bg:#0C0E14; --card:#171B23; --ink:#F2F4F8; --muted:#98A2B3; --faint:#6B7480; --hair:#262B35;
-  --golden:#F2B544; --great:#3FBE72; --good:#63C98A; --decent:#A9A390; --poor:#E9744F; --bad:#E0533F;
-  --gold-bright:#FCD873; --gold-deep:#D79A1E;
-  --accent:#4B82F3; --brand-gold:#F6C65B; --brand-navy:#EAF0F8; --brand-sky:#78A9DC; --brand-pale:#1A2436;
-  --safety:#F05B50; --safety-bg:#2A1512; --safety-border:#5A2A22; --safety-ink:#F3B4A8;
-  --stale:#D8B85A; --stale-bg:#241E10; --stale-border:#4A3F1C;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.4);
-  --shadow-lg:0 24px 60px rgba(0,0,0,.55);
-}}
 
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);color:var(--ink)}
@@ -115,7 +95,6 @@ button{font-family:var(--sans);cursor:pointer}
 .tip{position:absolute;transform:translateX(-50%);pointer-events:none;z-index:6;
   border-radius:12px;padding:10px 12px;font-size:12px;min-width:150px;box-shadow:0 12px 28px rgba(0,0,0,.28);opacity:0;transition:opacity .12s;
   background:var(--ink);color:var(--bg)}
-.dark .tip{background:#F2F4F8;color:#0f1728}
 .tip.on{opacity:1}
 .tip .tt{font-weight:700;font-size:12.5px;margin-bottom:5px}
 .tip .tr{display:flex;justify-content:space-between;gap:14px;opacity:.85}

@@ -15,7 +15,6 @@ const store = {
 let profile = { ...sensibleDefault, ...store.get('gw.profile', {}) };
 let location = store.get('gw.loc', null);
 let units = store.get('gw.units', 'F');
-let appearance = store.get('gw.appearance', 'system');
 let cache = store.get('gw.cache', null);
 
 let forecast = null;
@@ -151,16 +150,6 @@ function characterPhrase(ev) {
   return phrase.charAt(0).toUpperCase() + phrase.slice(1);
 }
 
-function applyAppearance() {
-  document.documentElement.classList.remove('light', 'dark');
-  if (appearance === 'light') document.documentElement.classList.add('light');
-  else if (appearance === 'dark') document.documentElement.classList.add('dark');
-}
-function effectiveDark() {
-  if (appearance === 'dark') return true;
-  if (appearance === 'light') return false;
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
 
 const MI = { 'Feels like': 'M14 14.8V5a2 2 0 10-4 0v9.8a4 4 0 104 0z', Clouds: 'M7 18a4 4 0 010-8 5 5 0 019.6-1.6A3.5 3.5 0 1117 18H7z', 'Dew point': 'M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z', Rain: 'M6 13a6 6 0 0111.7-2A4 4 0 1117 19H7' };
 const metricIcon = k => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${MI[k] || MI.Clouds}"/></svg>`;
@@ -415,7 +404,7 @@ function viewSettings(root) {
   const save = () => store.set('gw.profile', profile);
   const grid = el('div', { class: 'set-grid' });
 
-  const prof = el('section', { class: 'card set-card', style: 'grid-row:span 3' });
+  const prof = el('section', { class: 'card set-card', style: 'grid-row:span 2' });
   prof.append(el('h3', {}, ['Your comfort profile']));
   const pref = (label, valFn, min, max, step, get, set) => {
     const v = el('span', { class: 'sv' }, [valFn()]);
@@ -448,14 +437,6 @@ function viewSettings(root) {
   locCard.append(el('div', { class: 'set-row', style: 'display:block' }, [el('div', { class: 'search', style: 'width:100%' }, [el('span', { html: '<svg class="icon sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>' }), inp]), err]));
   locCard.append(el('div', { class: 'set-row' }, [el('span', {}, ['Current place']), el('span', { class: 'sv' }, [(location || DEFAULT_LOC).name])]));
   grid.append(locCard);
-
-  const appCard = el('section', { class: 'card set-card' });
-  appCard.append(el('h3', {}, ['Appearance']));
-  const aSeg = el('div', { class: 'seg' });
-  const mkA = () => { aSeg.innerHTML = ''; [['System', 'system'], ['Light', 'light'], ['Dark', 'dark']].forEach(([t, v]) => aSeg.append(el('button', { class: appearance === v ? 'on' : '', onclick: () => setAppearance(v) }, [t]))); };
-  mkA();
-  appCard.append(el('div', { class: 'set-row' }, [el('span', {}, ['Theme']), aSeg]));
-  grid.append(appCard);
 
   const about = el('section', { class: 'card set-card', style: 'grid-column:1/-1' });
   about.append(el('h3', {}, ['About']));
@@ -515,13 +496,9 @@ function topbar() {
     el('input', { placeholder: 'City or ZIP', 'aria-label': 'Search location', onkeydown: async e => { if (e.key === 'Enter' && e.target.value.trim()) await doSearch(e.target.value.trim()); } }),
   ]);
   bar.append(search);
-  const seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Appearance' }), dark = effectiveDark();
-  seg.append(el('button', { class: dark ? '' : 'on', onclick: () => setAppearance('light') }, ['Light']), el('button', { class: dark ? 'on' : '', onclick: () => setAppearance('dark') }, ['Dark']));
-  bar.append(seg);
   return bar;
 }
 
-function setAppearance(a) { appearance = a; store.set('gw.appearance', a); applyAppearance(); route(); }
 function locationHash() { return window.location.hash || '#/today'; }
 function isTodayPath(p) { return p === '' || p === '#/' || p === '#/today'; }
 function navigate(h) { if (window.location.hash === h) route(); else window.location.hash = h; }
@@ -580,8 +557,6 @@ async function load() {
 }
 
 function init() {
-  applyAppearance();
-  if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (appearance === 'system') route(); });
   window.addEventListener('hashchange', route);
   if (cache && cache.forecast) { forecast = cache.forecast; fetchedReal = cache.fetchedReal || 0; stale = (Date.now() - fetchedReal) > STALE_MS; }
   route();
