@@ -20,8 +20,8 @@ function parseLocal(iso) {
 export async function fetchForecast(lat, lon) {
   const params = new URLSearchParams({
     latitude: lat, longitude: lon,
-    hourly: 'temperature_2m,apparent_temperature,dew_point_2m,cloud_cover,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
-    current: 'temperature_2m,apparent_temperature,cloud_cover,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
+    hourly: 'temperature_2m,apparent_temperature,dew_point_2m,relative_humidity_2m,cloud_cover,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
+    current: 'temperature_2m,apparent_temperature,relative_humidity_2m,cloud_cover,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
     daily: 'sunrise,sunset,weather_code,temperature_2m_max,temperature_2m_min',
     temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'mm',
     timezone: 'auto', forecast_days: '7',
@@ -34,6 +34,7 @@ export async function fetchForecast(lat, lon) {
   const hours = h.time.map((iso, i) => ({
     time: parseLocal(iso), dateKey: iso.slice(0, 10),
     temperatureF: h.temperature_2m[i], apparentF: h.apparent_temperature[i], dewF: h.dew_point_2m[i],
+    humidity: (h.relative_humidity_2m[i] ?? 0) / 100,
     cloud: (h.cloud_cover[i] ?? 0) / 100, precipProb: (h.precipitation_probability[i] ?? 0) / 100,
     precipMM: h.precipitation[i] ?? 0, weatherCode: h.weather_code[i],
     windMph: h.wind_speed_10m[i] ?? 0, windGustMph: h.wind_gusts_10m[i] ?? 0,
@@ -58,7 +59,7 @@ export async function fetchForecast(lat, lon) {
   const current = {
     time: curTime,
     temperatureF: cur.temperature_2m, apparentF: cur.apparent_temperature,
-    dewF: nearest.dewF, cloud: (cur.cloud_cover ?? 0) / 100,
+    dewF: nearest.dewF, humidity: (cur.relative_humidity_2m ?? nearest.humidity ?? 0) / 100, cloud: (cur.cloud_cover ?? 0) / 100,
     precipProb: nearest.precipProb, precipMM: cur.precipitation ?? 0,
     weatherCode: cur.weather_code, windMph: cur.wind_speed_10m ?? 0, windGustMph: cur.wind_gusts_10m ?? 0,
     isDay: cur.is_day === 1, aqi: null, conditionText: conditionText(cur.weather_code),
