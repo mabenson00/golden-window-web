@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=27';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=27';
+import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=31';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=31';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -98,6 +98,15 @@ const DAY_SKY_TEXT = { sunny: 'Sunny', partlyCloudy: 'Partly cloudy', cloudy: 'C
 const DAY_SKY_EMOJI = { sunny: '☀️', partlyCloudy: '⛅️', cloudy: '☁️', rainy: '🌧️', snowy: '❄️', wintryMix: '🌨️' };
 const skyText = k => DAY_SKY_TEXT[k] || 'Cloudy';
 const skyEmoji = k => DAY_SKY_EMOJI[k] || '☁️';
+const WEEK_SKY = {
+  sunny: '<circle cx="12" cy="12" r="4.4"/><path d="M12 2v2.4M12 19.6V22M3.5 3.5l1.7 1.7M18.8 18.8l1.7 1.7M2 12h2.4M19.6 12H22M3.5 20.5l1.7-1.7M18.8 5.2l1.7-1.7"/>',
+  partlyCloudy: '<circle cx="8.5" cy="8" r="3"/><path d="M8.5 1.8v1.4M3.4 3.4l1 1M13.6 4.4l1-1M1.8 8h1.4"/><path d="M17.5 20a4 4 0 0 0 0-8h-.6a5.5 5.5 0 0 0-10.3-.9"/><path d="M6 20h11.5"/>',
+  cloudy: '<path d="M17.5 19a4.5 4.5 0 0 0 0-9h-.7A7 7 0 1 0 6 17.7"/>',
+  rainy: '<path d="M17.5 16a4.2 4.2 0 0 0 0-8.4h-.6A6 6 0 1 0 6 13.5"/><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5"/>',
+  snowy: '<path d="M17.5 16a4.2 4.2 0 0 0 0-8.4h-.6A6 6 0 1 0 6 13.5"/><path d="M8 18.5v.01M8 21.5v.01M12 19.5v.01M12 22.5v.01M16 18.5v.01M16 21.5v.01"/>',
+  wintryMix: '<path d="M17.5 16a4.2 4.2 0 0 0 0-8.4h-.6A6 6 0 1 0 6 13.5"/><path d="M8 18l-1 2.5M12 19.5v.01M12 22.5v.01M16 18l-1 2.5"/>',
+};
+const weekSkySVG = k => `<svg class="wglyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${WEEK_SKY[k] || WEEK_SKY.cloudy}</svg>`;
 
 const rangeApp = w => `${fmtLong(w.startTime)}–${fmtLong(w.endTime)}`;
 function windowQualityPhrase(w) { const b = band(w.averageComfort / 10); if (b === 'Golden') return 'Golden conditions'; if (b === 'Poor' || b === 'Bad') return 'The least uncomfortable part of the day'; return `${b} conditions`; }
@@ -211,6 +220,32 @@ function smoothPath(pts) {
   return d;
 }
 
+function ridgeSVG(pts, opt) {
+  const W = opt.W || 1000, H = opt.H || 240, padL = opt.padL ?? 40, padR = opt.padR ?? 20, padT = opt.padT ?? 30, padB = opt.padB ?? 40;
+  const lo = opt.lo, hi = opt.hi, n = pts.length, plotW = W - padL - padR, plotH = (H - padB) - padT;
+  const X = i => padL + (n <= 1 ? 0 : i / (n - 1)) * plotW, Y = v => (H - padB) - (v - lo) / (hi - lo) * plotH;
+  const P = pts.map((p, i) => ({ x: X(i), y: Y(p.score) }));
+  const line = smoothPath(P);
+  const area = `${line} L ${P[n - 1].x.toFixed(1)} ${(H - padB)} L ${P[0].x.toFixed(1)} ${(H - padB)} Z`;
+  const colOf = s => CSSV('--' + (isGolden(s) ? 'golden' : bandCls(s)));
+  const stops = P.map((p, i) => `<stop offset="${(((p.x - padL) / plotW) * 100).toFixed(2)}%" stop-color="${colOf(pts[i].score)}"/>`).join('');
+  const accent = CSSV('--accent'), card = CSSV('--card');
+  let grid = '';
+  for (let s = Math.ceil(lo); s <= Math.floor(hi); s++) { const y = Y(s); grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" class="rl-grid"/><text x="${padL - 9}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" class="rl-ax">${s}</text>`; }
+  let guides = '';
+  if (opt.marks) opt.marks.forEach(m => guides += `<line x1="${X(m.i).toFixed(1)}" y1="${(padT - 6).toFixed(1)}" x2="${X(m.i).toFixed(1)}" y2="${(H - padB).toFixed(1)}" stroke="${accent}" stroke-opacity=".35" stroke-width="1.2" stroke-dasharray="3 4"/>`);
+  const emph = i => opt.marks && opt.marks.some(m => m.i === i);
+  const dots = P.map((p, i) => { const c = colOf(pts[i].score); return emph(i) ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" fill="${c}" stroke="${card}" stroke-width="2.5"/>` : `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${card}" stroke="${c}" stroke-width="2.2"/>`; }).join('');
+  let labels = '';
+  if (opt.allLabels) labels += P.map((p, i) => `<text x="${p.x.toFixed(1)}" y="${(p.y - 14).toFixed(1)}" text-anchor="middle" class="rl-v${emph(i) ? ' em' : ''}">${scoreText(pts[i].score)}</text>`).join('');
+  const xl = pts.map((p, i) => `<text x="${X(i).toFixed(1)}" y="${(H - padB + 22).toFixed(1)}" text-anchor="middle" class="rl-x${emph(i) ? ' em' : ''}">${p.label}</text>`).join('');
+  const uid = opt.id || 'r';
+  return `<svg viewBox="0 0 ${W} ${H}" class="ridge-svg" role="img" aria-label="${opt.aria || 'scores'}"><defs>` +
+    `<linearGradient id="strk-${uid}" gradientUnits="userSpaceOnUse" x1="${padL}" y1="0" x2="${W - padR}" y2="0">${stops}</linearGradient>` +
+    `<linearGradient id="fill-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${accent}" stop-opacity=".14"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></linearGradient>` +
+    `</defs>${grid}<path d="${area}" fill="url(#fill-${uid})"/>${guides}<path d="${line}" fill="none" stroke="url(#strk-${uid})" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>${dots}${labels}${xl}</svg>`;
+}
+
 function drawTimeline(ev, opts = {}) {
   let data = ev.hourly.filter(h => { const lh = localHour(h.time); return lh >= PLOT_LO && lh <= PLOT_HI; });
   if (data.length < 2) data = ev.hourly.slice();
@@ -227,22 +262,24 @@ function drawTimeline(ev, opts = {}) {
   if (ev.sunrise && ev.sunrise > domS) shade(domS, ev.sunrise);
   if (ev.sunset && ev.sunset < domE) shade(ev.sunset, domE);
 
+  const accent = CSSV('--accent');
   const w = ev.bestWindow;
   if (w) {
-    const wx = X(Math.max(domS, w.startTime)), wxe = X(Math.min(domE, w.endTime)), wcls = bandClsComfort(w.averageComfort);
-    if (wcls === 'golden') {
-      const d = E('defs', {}); d.innerHTML = `<linearGradient id="wgrad" x1="0" x2="1"><stop offset="0" stop-color="${CSSV('--gold-bright')}" stop-opacity=".30"/><stop offset="1" stop-color="${CSSV('--gold-deep')}" stop-opacity=".18"/></linearGradient>`; svg.append(d);
-      svg.append(E('rect', { x: wx, y: PTOP - 4, width: Math.max(2, wxe - wx), height: PBOT - PTOP + 4, rx: 10, fill: 'url(#wgrad)', stroke: CSSV('--brand-gold'), 'stroke-width': 1.5 }));
-    } else {
-      svg.append(E('rect', { x: wx, y: PTOP - 4, width: Math.max(2, wxe - wx), height: PBOT - PTOP + 4, rx: 10, fill: CSSV('--' + wcls), opacity: 0.13, stroke: CSSV('--brand-gold'), 'stroke-width': 1.4, 'stroke-opacity': 0.55 }));
-    }
+    const wx = X(Math.max(domS, w.startTime)), wxe = X(Math.min(domE, w.endTime));
+    const wd = E('defs', {}); wd.innerHTML = `<linearGradient id="wgrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${accent}" stop-opacity=".16"/><stop offset="1" stop-color="${accent}" stop-opacity=".025"/></linearGradient>`; svg.append(wd);
+    svg.append(E('rect', { x: wx, y: PTOP - 4, width: Math.max(2, wxe - wx), height: PBOT - PTOP + 4, rx: 12, fill: 'url(#wgrad)', stroke: accent, 'stroke-width': 1.2, 'stroke-opacity': 0.32 }));
   }
 
   const P = data.map(h => ({ x: X(h.time), y: Y(h.comfort) }));
   const linePath = smoothPath(P);
-  const ad = E('defs', {}); ad.innerHTML = `<linearGradient id="tlarea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${muted}" stop-opacity=".26"/><stop offset="1" stop-color="${muted}" stop-opacity="0"/></linearGradient>`; svg.append(ad);
+  const plotW = (VBW - PADR) - PADL;
+  const stops = data.map(h => { const off = plotW > 0 ? ((X(h.time) - PADL) / plotW) * 100 : 0; return `<stop offset="${off.toFixed(2)}%" stop-color="${CSSV('--' + bandClsComfort(h.comfort))}"/>`; }).join('');
+  const ad = E('defs', {}); ad.innerHTML =
+    `<linearGradient id="tlstroke" gradientUnits="userSpaceOnUse" x1="${PADL}" y1="0" x2="${VBW - PADR}" y2="0">${stops}</linearGradient>`
+    + `<linearGradient id="tlarea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${accent}" stop-opacity=".14"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></linearGradient>`;
+  svg.append(ad);
   svg.append(E('path', { d: `${linePath} L${X(domE).toFixed(1)},${PBOT} L${X(domS).toFixed(1)},${PBOT} Z`, fill: 'url(#tlarea)' }));
-  svg.append(E('path', { d: linePath, fill: 'none', stroke: muted, 'stroke-width': 2.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  svg.append(E('path', { d: linePath, fill: 'none', stroke: 'url(#tlstroke)', 'stroke-width': 3.1, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
 
   [ev.sunrise, ev.sunset].forEach(t => { if (t && t >= domS && t <= domE) svg.append(E('line', { x1: X(t), x2: X(t), y1: PBOT, y2: PBOT + 6, stroke: CSSV('--brand-gold'), 'stroke-width': 2.2 })); });
 
@@ -355,12 +392,24 @@ function metricsCard(ev, label, span = 'span4') {
   return el('section', { class: `card ${span}`, html: `<div class="lab">${label}</div>${metricsInner(ev)}` });
 }
 
-function breakdownCard(ev) {
+function breakdownRows(ev) {
   const rows = ev.breakdown.slice().sort((a, b) => factorMag(b) - factorMag(a));
   const maxMag = Math.max(1e-6, ...rows.map(factorMag));
-  const body = rows.length ? rows.map(r => { const cls = r.helped ? 'good' : 'poor'; return `<div class="brk-row"><div class="brk-head"><span class="brk-l">${r.label}</span><span class="brk-v c-${cls}">${factorTag(r)}</span></div><div class="brk-bar"><div class="brk-fill fill-${cls}" style="width:${Math.round(Math.max(3, Math.min(100, factorMag(r) / maxMag * 100)))}%"></div></div></div>`; }).join('')
+  return rows.length ? rows.map(r => { const cls = r.helped ? 'good' : 'poor'; return `<div class="brk-row"><div class="brk-head"><span class="brk-l">${r.label}</span><span class="brk-v c-${cls}">${factorTag(r)}</span></div><div class="brk-bar"><div class="brk-fill fill-${cls}" style="width:${Math.round(Math.max(3, Math.min(100, factorMag(r) / maxMag * 100)))}%"></div></div></div>`; }).join('')
     : `<div class="c-muted" style="font-size:14px">Nothing stands out either way today.</div>`;
-  return el('section', { class: 'card span4', html: `<div class="card-head"><span class="ch-t">What helped, what held it back</span><span style="font-size:12px;color:var(--faint)">across the day</span></div><div class="brk">${body}</div>` });
+}
+function breakdownCard(ev) {
+  return el('section', { class: 'card span4', html: `<div class="card-head"><span class="ch-t">What helped, what held it back</span><span style="font-size:12px;color:var(--faint)">across the day</span></div><div class="brk">${breakdownRows(ev)}</div>` });
+}
+
+function scoreMeter(displayed) {
+  const pos = Math.max(0, Math.min(100, roundedScore(displayed) * 10));
+  return `<div class="dmeter"><span class="pip" style="left:${pos.toFixed(1)}%"></span></div><div class="dmeter-lab"><span>Poor</span><span>Decent</span><span>Great</span></div>`;
+}
+function verdictBlock(displayed, tag) {
+  const golden = isGolden(displayed), cls = bandCls(displayed);
+  const word = golden ? `<span class="gold-text">Golden</span> <span class="spark">✦</span>` : `<span class="c-${cls}">${band(displayed)}</span>`;
+  return `<div class="dverdict-row"><span class="dverdict serif">${word}</span><span class="dtag">${tag}</span></div>`;
 }
 
 function weekdayName(ev) { return ev.isToday ? 'Today' : new Date(ev.rawHours[0].time).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }); }
@@ -391,16 +440,60 @@ function nowIndexFor(ev) {
 
 function nowMs() { return forecast.updatedAt + Math.max(0, Date.now() - fetchedReal); }
 
+function weekMiniStrip(week) {
+  const cards = week.map(d => {
+    const g = isGolden(d.displayedDayScore), c = g ? 'golden' : bandCls(d.displayedDayScore);
+    return `<a class="wcard${d.isToday ? ' today' : ''}" href="#/week/${d.index}"><div class="wd">${weekdayName(d)}</div><div class="ws c-${c}">${scoreText(d.displayedDayScore)}</div><div class="wb c-${c}">${band(d.displayedDayScore)}</div><div class="wt">${windowText(d)}</div></a>`;
+  }).join('');
+  return el('section', { class: 'wkmini', html: `<div class="wkmini-head"><div class="wkmini-t serif"><span class="k">Looking ahead</span>This week</div><a href="#/week">All 7 days →</a></div><div class="wkrow">${cards}</div>` });
+}
+
+function todayHero(ev, week) {
+  const now = ev.now;
+  const nowLabel = forecast.current ? `Right now · ${fmtLong(forecast.current.time)}` : 'Right now';
+  const nowVal = now ? `<span class="em c-${bandCls(now.displayedScore)}">${scoreText(now.displayedScore)} · ${band(now.displayedScore)}</span>` : '—';
+  const w = ev.bestWindow, wcls = w ? bandClsComfort(w.averageComfort) : 'muted', wg = w && wcls === 'golden';
+  const bestVal = w ? `${rangeApp(w)} <span class="sub">— ${windowQualityPhrase(w).toLowerCase()}</span>` : headlineFor(ev);
+  const rail = el('div', { class: 'trail', html:
+    `<div class="eyebrow">The day, for you</div>
+     <div class="tbignum serif tnum">${scoreText(ev.displayedDayScore)}<span class="of">/ 10</span></div>
+     ${scoreMeter(ev.displayedDayScore)}
+     ${verdictBlock(ev.displayedDayScore, 'Today')}
+     <p class="dcharacter serif">${characterPhrase(ev)}.</p>
+     <div class="rail-facts">
+       <div class="rf"><span class="rk">${nowLabel}</span><span class="rv">${nowVal}</span></div>
+       <div class="rf"><span class="rk">Best window</span><span class="rv ${wg ? 'gold-text' : 'c-' + wcls}">${bestVal}</span></div>
+       <div class="rf"><span class="rk">The day</span><span class="rv tnum">${skyText(ev.daySky)} · High ${Ts(ev.high)} · Low ${Ts(ev.low)}</span></div>
+     </div>` });
+  const tlTitle = w ? `Your comfort, hour by hour — <span class="win">best ${rangeApp(w)}</span>` : 'Your comfort, hour by hour';
+  const right = el('div', { class: 'ttl' });
+  right.append(el('div', { class: 'ttl-head', html: `<span class="ttl-title serif">${tlTitle}</span><span class="scalekey"><span class="grad"></span>worse → better</span>` }));
+  right.append(timelinePlot(ev, { isToday: true, nowTime: forecast.current && forecast.current.time, nowIndex: nowIndexFor(ev) }));
+  right.append(weekMiniStrip(week));
+  return el('div', { class: 't-hero' }, [rail, right]);
+}
+
+function todayTwo(ev) {
+  const cond = metricRow(ev).map(x => `<div class="mrow">${metricIcon(x.k)}<span class="lab">${x.k}</span><span class="val tnum c-${x.cls}"><span class="dot" style="background:var(--${x.cls})"></span>${x.v}<span class="d">${x.d}</span></span></div>`).join('');
+  return el('div', { class: 't-two' }, [
+    el('div', { class: 't-two-col', html: `<div class="slab serif"><span class="k">The conditions</span>What today feels like</div><div class="metrics2">${cond}</div>` }),
+    el('div', { class: 't-two-col', html: `<div class="slab serif"><span class="k">Why this score</span>What helped, what held it back</div><div class="brk">${breakdownRows(ev)}</div>` }),
+  ]);
+}
+
 function viewToday(root) {
   const ev = evaluate(forecast, profile, nowMs());
   if (isSafetyOverride()) return viewSafety(root, ev);
   const wrap = el('div', { class: 'wrap' });
   if (stale) wrap.append(staleBanner());
   const week = evaluateWeekCached();
-  const body = el('div', { class: 'today-stack' + (stale ? ' muteall' : '') }, [
-    nowCard(ev),
-    heroCard(ev, { isToday: true, nowTime: forecast.current && forecast.current.time, nowIndex: nowIndexFor(ev) }),
-    el('div', { class: 'dash', style: 'margin-top:0' }, [breakdownCard(ev), weekMiniCard(week)]),
+  const d0 = new Date(forecast.days[0].hours[0].time);
+  const dateStr = d0.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  const body = el('div', { class: 'thome' + (stale ? ' muteall' : '') }, [
+    el('div', { class: 'datebar' }, [`Today · ${dateStr}`]),
+    todayHero(ev, week),
+    el('div', { class: 't-rule' }),
+    todayTwo(ev),
   ]);
   wrap.append(body, footer());
   root.append(wrap);
@@ -417,7 +510,7 @@ function viewWeek(root) {
     const cls = bandCls(d.displayedDayScore), g = isGolden(d.displayedDayScore), isBest = d.index === bestIdx && week.length > 1;
     grid.append(el('a', { href: `#/week/${d.index}`, class: 'wday' + (g ? ' sel gold-glow' : '') + (isBest && !g ? ' best' : ''), html:
       `<div class="wtop">${isBest ? 'Best day' : ''}</div>
-       <div class="wn">${weekdayName(d)}</div><div class="wsky">${skyEmoji(d.daySky)}</div>
+       <div class="wn">${weekdayName(d)}</div><div class="wsky">${weekSkySVG(d.daySky)}</div>
        <div class="wbadge ${g ? 'gold-badge' : 'bg-' + cls}">${scoreText(d.displayedDayScore)}${g ? ' <span class="spark">✦</span>' : ''}</div>
        <div class="wband ${g ? 'gold-text' : 'c-' + cls}">${band(d.displayedDayScore)}</div>
        ${miniSpark(d)}
@@ -547,21 +640,21 @@ async function loadPlan(loc) {
 function setPlanMonth(m) { plan.month = m; store.set('gw.planmonth', m); route(); }
 
 function planCalendar(a) {
+  let peak = -1, peakV = -1;
+  a.perDom.forEach((v, i) => { if (v != null && v > peakV) { peakV = v; peak = i + 1; } });
   const cells = a.perDom.map((v, i) => {
-    const d = i + 1; const sweet = d >= a.sweet.start && d <= a.sweet.end;
-    if (v == null) return `<div class="pcell empty"><span class="d">${d}</span></div>`;
-    const cls = bandCls(v), inten = Math.round(Math.max(0, Math.min(1, (v - 5) / 4)) * 34 + 8);
-    return `<div class="pcell${sweet ? ' sweet' : ''}" style="background:color-mix(in srgb,var(--${cls}) ${inten}%,var(--card))"><span class="d">${d}</span><span class="sc c-${cls}">${scoreText(v)}</span></div>`;
+    const d = i + 1, sweet = d >= a.sweet.start && d <= a.sweet.end, isPeak = d === peak;
+    if (v == null) return `<div class="pcell empty"><span class="pd">${d}</span></div>`;
+    const cls = bandCls(v), t = Math.round(Math.max(0, Math.min(1, (v - 6) / 2.4)) * 20 + 8);
+    return `<div class="pcell${sweet ? ' sweet' : ''}${isPeak ? ' peak' : ''}" style="background:color-mix(in srgb,var(--${cls}) ${t}%,var(--card2))"><span class="pd">${d}</span><span class="ps c-${cls}">${scoreText(v)}</span></div>`;
   }).join('');
-  return `<div class="pcal-head"><span class="t">Day by day — when to go</span><span class="pcal-leg"><i style="background:color-mix(in srgb,var(--great) 42%,#fff)"></i>Great <i style="background:color-mix(in srgb,var(--good) 26%,#fff)"></i>Good <i style="background:color-mix(in srgb,var(--decent) 22%,#fff)"></i>Decent</span></div>
-    <div class="pcal">${cells}</div>
-    <div class="pcal-note"><b>${MONTHS_SHORT[a.month - 1]} ${a.sweet.start}–${a.sweet.end} is your sweet spot</b> (outlined) — the best stretch of the month for you.</div>`;
+  return `<div class="dowrow"><span class="dow">Mon</span><span class="dow">Tue</span><span class="dow">Wed</span><span class="dow">Thu</span><span class="dow">Fri</span><span class="dow">Sat</span><span class="dow">Sun</span></div><div class="pcal">${cells}</div>`;
 }
 function planOdds(a) {
-  const order = ['golden', 'great', 'good', 'decent', 'poor', 'bad'], lbl = { golden: 'Gold', great: 'Great', good: 'Good', decent: 'Dec', poor: 'Poor', bad: 'Bad' };
+  const order = ['golden', 'great', 'good', 'decent', 'poor', 'bad'], lbl = { golden: 'Gold', great: 'Great', good: 'Good', decent: 'Decent', poor: 'Poor', bad: 'Bad' };
   const max = Math.max(1, ...order.map(k => a.dist[k]));
-  const bars = order.map(k => { const c = a.dist[k], h = Math.round(Math.max(4, c / max * 100)); const on = c > 0; return `<div class="pbar"><span class="v ${on ? 'c-' + k : 'c-muted'}">${c}</span><div class="pfill" style="height:${h}%;background:${on ? 'var(--' + k + ')' : 'var(--hair)'}"></div><span class="k">${lbl[k]}</span></div>`; }).join('');
-  return `<div class="eyebrow">What are the odds</div><div class="pdist">${bars}</div><div class="psum"><b>About ${Math.round(a.goodPct / 10)} in 10 days are Good or better${a.goodPct >= 50 ? '' : ' — a mixed month'}.</b> Typical day lands ${scoreText(a.lo)}–${scoreText(a.hi)}.</div>`;
+  const bars = order.map(k => { const c = a.dist[k], on = c > 0, h = Math.max(3, c / max * 100); return `<div class="pbar"><span class="pv ${on ? 'c-' + k : 'c-muted'}">${c}</span><div class="pcol" style="height:${h.toFixed(0)}%;background:${on ? 'var(--' + k + ')' : 'var(--hair)'}"></div><span class="pk">${lbl[k]}</span></div>`; }).join('');
+  return `<div class="odds">${bars}</div><p class="psum"><b>About ${Math.round(a.goodPct / 10)} in 10 days are Good or better${a.goodPct >= 50 ? '' : ' — a mixed month'}.</b> The typical day lands ${scoreText(a.lo)}–${scoreText(a.hi)}.</p>`;
 }
 const SUN_IC = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
 function planExpectCard(a) {
@@ -574,23 +667,26 @@ function planExpectCard(a) {
     ${e.mug ? row(p(MI['Dew point']), 'Mugginess', e.mug.word, e.mug.cls) : ''}
     ${row(p(MI.Rain), 'Rain', `${e.rain.word}<span class="sub">· ${e.rain.note}</span>`, e.rain.cls)}`;
 }
-function planYearCard() {
+function planYearLead() {
   const yr = planYear(plan.scored), vals = yr.filter(m => m.score != null).map(m => m.score);
-  const lo = Math.min(...vals) - 0.4, hi = Math.max(...vals) + 0.2;
-  const bars = yr.map(m => {
-    if (m.score == null) return `<div class="ybar"><span class="k">${MONTHS_SHORT[m.month - 1]}</span></div>`;
-    const cls = bandCls(m.score), h = Math.round(Math.max(6, (m.score - lo) / (hi - lo) * 100)), sel = m.month === plan.month;
-    return `<a class="ybar${sel ? ' sel' : ''}" href="#/plan" onclick="return false" data-m="${m.month}"><span class="v c-${cls}">${scoreText(m.score)}</span><div class="yfill" style="height:${h}%;background:var(--${cls})"></div><span class="k">${MONTHS_SHORT[m.month - 1]}</span></a>`;
-  }).join('');
-  const ranked = yr.filter(m => m.score != null).sort((a, b) => b.score - a.score);
+  const lo = Math.min(...vals) - 0.4, hi = Math.max(...vals) + 0.2, selIdx = plan.month - 1;
+  const pts = yr.map(m => ({ label: MONTHS_SHORT[m.month - 1], score: m.score == null ? lo : m.score }));
+  const svg = ridgeSVG(pts, { W: 1100, H: 250, lo, hi, allLabels: true, marks: [{ i: selIdx }], id: 'year', aria: 'monthly scores across the year' });
+  const ranked = yr.filter(m => m.score != null).sort((x, y) => y.score - x.score);
   const rank = ranked.findIndex(m => m.month === plan.month) + 1;
-  return { html: `<div class="eyebrow">Best months here · for you — the whole year</div><div class="pyear">${bars}</div><div class="pyear-note">${MONTHS[plan.month - 1]} ranks <b>#${rank} of 12</b> here${rank <= 3 ? ' — one of your best bets' : ''}. Tap a month to switch.</div>`, ranked };
+  const months = MONTHS_SHORT.map((m, i) => `<span class="pmo${i === selIdx ? ' on' : ''}" data-m="${i + 1}">${m}</span>`).join('');
+  const node = el('section', { class: 'yearlead', html:
+    `<div class="yearlead-head"><div class="slab serif"><span class="k">Start with the month</span>Best months here — the whole year</div><div class="scalekey"><span class="grad"></span>worse → better</div></div>
+     <div class="months">${months}</div>
+     <div class="ridge-host">${svg}</div>
+     <p class="year-note serif">${MONTHS[plan.month - 1]} ranks <b>#${rank} of 12</b> here${rank <= 3 ? ' — one of your best bets' : ''}. Tap a month to switch.</p>` });
+  node.querySelectorAll('.pmo[data-m]').forEach(b => b.addEventListener('click', () => setPlanMonth(+b.dataset.m)));
+  return node;
 }
 
 function planHeader() {
   return el('div', { class: 'plan-topline' }, [
     el('div', { class: 'crumb', html: `<a href="#/plan" onclick="return false" id="plan-change">← Change place</a> · ${plan.loc.name}` }),
-    el('div', { class: 'plan-monthpick' }, MONTHS_SHORT.map((m, i) => el('button', { class: 'pm' + (plan.month === i + 1 ? ' on' : ''), onclick: () => setPlanMonth(i + 1) }, [m]))),
   ]);
 }
 function planEntry() {
@@ -610,27 +706,46 @@ function planLoading() {
   return el('div', { class: 'plan-loading' }, [el('div', { class: 'plan-spin' }), el('div', {}, [`Reading ${PLAN_YEARS.length} years of ${MONTHS[plan.month - 1]} in ${plan.loc.name.split(',')[0]}…`]), el('div', { class: 'plan-sub' }, ['Scoring every historical day for you.'])]);
 }
 
+const PLAN_TRI = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+function planMain(a) {
+  const mName = MONTHS[a.month - 1], mShort = MONTHS_SHORT[a.month - 1], span = a.sweet.end - a.sweet.start + 1;
+  const cal = el('div', { class: 'cal-hero', html:
+    `<span class="eyebrow">${mName}, day by day</span>
+     <h1 class="serif">When to go</h1>
+     <p class="cal-sub">Every day of the month, scored for you across ${a.years} ${mShort}s — deeper tint means a better day.</p>
+     <div class="cal-legend">
+       <span class="lg"><span class="sw" style="background:color-mix(in srgb,var(--great) 30%,var(--card2))"></span>Great</span>
+       <span class="lg"><span class="sw" style="background:color-mix(in srgb,var(--good) 22%,var(--card2))"></span>Good</span>
+       <span class="lg"><span class="sw" style="background:color-mix(in srgb,var(--decent) 20%,var(--card2))"></span>Decent</span>
+       <span class="lg"><span class="sw sw-sweet"></span>Sweet spot</span>
+     </div>
+     ${planCalendar(a)}
+     <div class="sweet-statement"><span class="big serif">${mShort} ${a.sweet.start}–${a.sweet.end}</span><span class="txt"><b>Your sweet spot</b> — the best ${span}-day stretch of the month to be outside. Aim your trip here.</span></div>` });
+  const rail = el('aside', { class: 'prail', html:
+    `<span class="eyebrow">Typical ${mName} · for you</span>
+     <div class="tbignum serif tnum">${scoreText(a.typical)}<span class="of">/ 10</span></div>
+     ${scoreMeter(a.typical)}
+     ${verdictBlock(a.typical, 'Typical')}
+     <p class="dcharacter serif">${a.character}.</p>
+     <div class="rf"><span class="rk">Usual range</span><span class="rv tnum">${scoreText(a.lo)} – ${scoreText(a.hi)} <span class="em">· ${band(a.lo)} to ${band(a.hi)}</span></span></div>
+     <div class="rf"><span class="rk">Based on</span><span class="rv tnum">${a.years} ${mShort}s · ${PLAN_YEARS[0]}–${PLAN_YEARS[PLAN_YEARS.length - 1]}</span></div>
+     <div class="expect2">${planExpectCard(a)}</div>
+     <div class="rail-heads"><div class="heads${a.heads.warn ? ' warn' : ''}"><span class="hk">${PLAN_TRI}Heads up</span><p class="serif">${a.heads.text}</p></div></div>` });
+  return el('div', { class: 'pmain' }, [cal, rail]);
+}
+function planBottom(a) {
+  return el('div', { class: 'p-odds', html: `<div class="slab serif"><span class="k">Reading the month</span>What are the odds</div>${planOdds(a)}` });
+}
 function planResults() {
   const a = planMonth(plan.scored, plan.month);
   if (!a) return el('div', { class: 'card' }, ['No data for this month.']);
-  const golden = isGolden(a.typical), cls = bandCls(a.typical);
-  const hero = el('section', { class: 'card hero' }, [
-    el('div', { class: 'hero-rail', html:
-      `<div class="eyebrow ${golden ? 'gold-text' : ''}">Typical ${MONTHS[a.month - 1]} · for you</div>
-       <div class="score-row"><div class="ring-wrap">${ringSVG(a.typical, golden)}<div class="ring-num"><span class="s ${golden ? 'gold-text' : ''}">${scoreText(a.typical)}</span><span class="d">/ 10</span></div></div>
-         <div class="verdict"><div class="vw"><span class="${golden ? 'gold-text' : 'c-' + cls}">${band(a.typical)}${golden ? ' <span class="spark">✦</span>' : ''}</span> <span class="now-badge c-${cls}" style="border-color:color-mix(in srgb,var(--${cls}) 40%,transparent);background:color-mix(in srgb,var(--${cls}) 12%,transparent);font-size:11px">TYPICAL</span></div><div class="vsub">${a.character}.</div></div></div>
-       <div class="hero-divider"></div>
-       <div class="hero-stat"><span class="hs-k">Usual range</span><span class="hs-v">${scoreText(a.lo)} – ${scoreText(a.hi)} · ${band(a.lo)} to ${band(a.hi)}</span></div>
-       <div class="hero-stat"><span class="hs-k">Based on</span><span class="hs-v">${a.years} ${MONTHS_SHORT[a.month - 1]}s · ${PLAN_YEARS[0]}–${PLAN_YEARS[PLAN_YEARS.length - 1]}</span></div>` }),
-    el('div', { class: 'pcalwrap', html: planCalendar(a) }),
+  return el('div', { class: 'phome' }, [
+    planYearLead(),
+    el('div', { class: 't-rule' }),
+    planMain(a),
+    planBottom(a),
+    el('div', { class: 'footnote' }, ['Typical values from history — not a forecast. Plan the fine detail closer to your dates.']),
   ]);
-  const dash = el('div', { class: 'dash' }, [el('section', { class: 'card', html: planOdds(a) }), el('section', { class: 'card', html: planExpectCard(a) })]);
-  const yc = planYearCard();
-  const year = el('section', { class: 'card', style: 'margin-top:20px', html: yc.html });
-  year.querySelectorAll('.ybar[data-m]').forEach(b => b.addEventListener('click', () => setPlanMonth(+b.dataset.m)));
-  const heads = el('section', { class: 'card' + (a.heads.warn ? ' plan-warn' : ' calm'), html: `<span class="k">Heads up</span><p>${a.heads.text}</p>` });
-  const foot = el('div', { class: 'footnote' }, ['Typical values from history — not a forecast. Plan the fine detail closer to your dates.']);
-  return el('div', {}, [hero, dash, year, heads, foot]);
 }
 
 function viewPlan(root) {
