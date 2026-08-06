@@ -16,7 +16,14 @@ html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.4}
 .serif{font-family:var(--serif)}
 a{color:inherit}
-.boot{padding:80px 20px;text-align:center;color:var(--faint)}
+.boot{max-width:640px;margin:0 auto;padding:80px 24px;text-align:center;color:var(--muted)}
+.boot h1{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.01em;line-height:1.2;margin-bottom:12px}
+.boot p{font-size:15px;line-height:1.5}
+.boot .boot-loading{margin-top:18px;color:var(--faint);font-size:13px}
+.noscript{max-width:640px;margin:40px auto;padding:0 24px;color:var(--muted)}
+.noscript h1{font-size:26px;font-weight:800;color:var(--ink);margin-bottom:12px}
+.noscript p{font-size:15px;line-height:1.55;margin-bottom:10px}
+.foot-tag{max-width:620px;margin:0 auto 10px;line-height:1.5}
 button{font-family:var(--sans);cursor:pointer}
 
 .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;

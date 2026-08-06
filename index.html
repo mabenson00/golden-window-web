@@ -3,16 +3,99 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Golden Window — your best time outside</title>
-  <meta name="description" content="A personal weather score and the best time to be outside." />
+
+  <title>Golden Window — the best time to be outside today, for you</title>
+  <meta name="description" content="Find the best time to go outside today. Golden Window scores every hour for how nice it is to be out — tuned to your comfort, not a generic forecast — and picks your ideal window. Free, no account, no tracking." />
+  <meta name="keywords" content="best time to go outside today, best time to be outside, best time for a walk today, best time to go for a run, is it nice out, good weather today, weather comfort score, best time outdoors, when to go outside" />
+  <link rel="canonical" href="https://thegoldenwindow.app/" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="author" content="Golden Window" />
   <meta name="theme-color" content="#E9EDF4" />
   <meta name="color-scheme" content="light" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Golden Window" />
+  <meta property="og:title" content="Golden Window — the best time to be outside today" />
+  <meta property="og:description" content="A personal weather score that finds your best time to go outside today, tuned to how you like it. Free, no account." />
+  <meta property="og:url" content="https://thegoldenwindow.app/" />
+  <meta property="og:image" content="https://thegoldenwindow.app/og-image.svg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Golden Window — the best time to be outside today" />
+  <meta name="twitter:description" content="A personal weather score that finds your best time to go outside today, tuned to how you like it." />
+  <meta name="twitter:image" content="https://thegoldenwindow.app/og-image.svg" />
+
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon.svg" />
-  <link rel="stylesheet" href="styles.css?v=15" />
+  <link rel="stylesheet" href="styles.css?v=16" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Golden Window",
+        "url": "https://thegoldenwindow.app/",
+        "description": "Find the best time to go outside today, scored for your personal comfort."
+      },
+      {
+        "@type": "WebApplication",
+        "name": "Golden Window",
+        "url": "https://thegoldenwindow.app/",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "Web",
+        "browserRequirements": "Requires JavaScript",
+        "description": "Golden Window scores every hour of the day for how good it is to be outside — temperature, sun, humidity and rain, weighted to your own preferences — and picks your best window.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "When is the best time to go outside today?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Golden Window scores every hour of today for how good it is to be outside — based on temperature, sun, humidity and rain, weighted to your own preferences — and highlights your best window to head out."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I know if it's nice out right now?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Golden Window gives a 0 to 10 comfort score for the current conditions and for the whole day, so you can tell at a glance whether right now is a good time to be outside."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What's the best time for a walk or a run today?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Set your comfort preferences once and Golden Window finds the stretch of the day that suits you best — the warmest sun, the driest air, the calmest wind — so you can time a walk, run or bike ride."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
-  <div id="root"><div class="boot">Reading your forecast…</div></div>
-  <script type="module" src="app.js?v=15"></script>
+  <div id="root">
+    <div class="boot">
+      <h1>The best time to be outside today — for you</h1>
+      <p>Golden Window scores every hour of the day for how good it is to be outside, tuned to your own comfort, and picks your best window to head out.</p>
+      <p class="boot-loading">Reading your forecast…</p>
+    </div>
+  </div>
+  <noscript>
+    <div class="noscript">
+      <h1>Golden Window — the best time to be outside today</h1>
+      <p>Golden Window finds the best time to go outside today. It scores every hour for how nice it is to be out — temperature, sun, humidity and rain — weighted to how you personally like it, then picks your ideal window and tells you whether right now is a good time to head out.</p>
+      <p>A live forecast needs JavaScript. Please enable it, or visit again in a browser with JavaScript on.</p>
+    </div>
+  </noscript>
+  <script type="module" src="app.js?v=16"></script>
 </body>
 </html>
