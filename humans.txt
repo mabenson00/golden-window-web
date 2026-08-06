@@ -1,0 +1,10 @@
+/* TEAM */
+  Built by: Michael Benson
+  GitHub: @mabenson00
+  Site: https://github.com/mabenson00
+
+/* SITE */
+  Golden Window — the best time to be outside today, scored for your comfort.
+  Standards: HTML5, CSS, vanilla JS (no framework, no build)
+  Data: Open-Meteo
+  Hosting: GitHub Pages

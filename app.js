@@ -499,7 +499,7 @@ function staleBanner() {
   const hrs = Math.max(1, Math.round((Date.now() - fetchedReal) / 3600e3));
   return el('div', { class: 'banner stale', html: `<svg class="icon sm" viewBox="0 0 24 24" style="stroke:var(--stale)" fill="none"><path d="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5"/></svg> Showing weather from about ${hrs} hour${hrs > 1 ? 's' : ''} ago — couldn't refresh.` });
 }
-function footer() { return el('div', { class: 'foot', html: '<div class="foot-tag">Golden Window finds the best time to be outside today — a personal weather score for how good it is to be out, tuned to how you like it, not a generic forecast.</div>Weather by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Golden Window · no account, no tracking' }); }
+function footer() { return el('div', { class: 'foot', html: '<div class="foot-tag">Golden Window finds the best time to be outside today — a personal weather score for how good it is to be out, tuned to how you like it, not a generic forecast.</div>Weather by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Built by <a href="https://github.com/mabenson00" target="_blank" rel="noopener">Michael Benson</a> · no account, no tracking' }); }
 
 let _weekCache = null, _weekKey = '';
 function evaluateWeekCached() {
