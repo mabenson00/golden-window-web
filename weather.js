@@ -74,7 +74,7 @@ function daysFromArchive(j) {
   const h = j.hourly;
   const hours = h.time.map((iso, i) => ({
     time: parseLocal(iso), dateKey: iso.slice(0, 10),
-    temperatureF: h.temperature_2m[i], apparentF: h.apparent_temperature[i], dewF: h.dew_point_2m[i],
+    temperatureF: h.apparent_temperature[i], apparentF: h.apparent_temperature[i], dewF: h.dew_point_2m[i],
     humidity: (h.relative_humidity_2m?.[i] ?? 0) / 100, cloud: (h.cloud_cover[i] ?? 0) / 100,
     precipProb: (h.precipitation[i] ?? 0) > 0.1 ? 1 : 0, precipMM: h.precipitation[i] ?? 0, weatherCode: h.weather_code[i],
     windMph: h.wind_speed_10m[i] ?? 0, windGustMph: h.wind_gusts_10m?.[i] ?? 0, isDay: h.is_day[i] === 1, aqi: null, conditionText: conditionText(h.weather_code[i]),
@@ -114,7 +114,7 @@ export async function fetchHistoricalYears(lat, lon, years) {
   const cacheKey = `${HIST_CACHE_VERSION}:${lat},${lon}:${y0}-${y1}`;
   const cached = await histCacheGet(cacheKey);
   if (cached && cached.length) return cached;
-  const hourly = 'temperature_2m,apparent_temperature,dew_point_2m,cloud_cover,precipitation,weather_code,wind_speed_10m,is_day';
+  const hourly = 'apparent_temperature,dew_point_2m,cloud_cover,precipitation,weather_code,wind_speed_10m,is_day';
   const p = new URLSearchParams({ latitude: lat, longitude: lon, hourly, daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code', timezone: 'auto', temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'mm', start_date: `${y0}-01-01`, end_date: `${y1}-12-31` });
   const url = `https://archive-api.open-meteo.com/v1/archive?${p}`;
   let j = null;
