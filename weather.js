@@ -110,7 +110,7 @@ async function histCacheSet(key, val) {
   catch { return; }
 }
 const ARCHIVE_DIRECT = 'https://archive-api.open-meteo.com/v1/archive';
-const ARCHIVE_PROXY = '';
+const ARCHIVE_PROXY = 'https://gw-archive-proxy.michael-alexander-benson.workers.dev/v1/archive';
 async function fetchArchive(qs) {
   const bases = ARCHIVE_PROXY ? [ARCHIVE_PROXY, ARCHIVE_DIRECT] : [ARCHIVE_DIRECT];
   let last;
