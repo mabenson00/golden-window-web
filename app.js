@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=41';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=41';
+import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=42';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=42';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -157,9 +157,9 @@ function combineClauses(ranked, avg) {
   if (!ranked.length) return 'Comfortable and steady';
   if (factorMag(ranked[0]) < CONFIG.characterMaterialFloor) return 'Comfortable and steady';
   const picks = ranked
-    .filter(r => factorMag(r) >= CONFIG.characterMaterialFloor)
-    .slice(0, CONFIG.characterMaxClauses)
-    .sort((a, b) => a.factor === b.factor ? 0 : a.factor === 'temperature' ? -1 : b.factor === 'temperature' ? 1 : factorMag(b) - factorMag(a));
+    .filter(r => r.factor === 'temperature' || factorMag(r) >= CONFIG.characterMaterialFloor)
+    .sort((a, b) => a.factor === b.factor ? 0 : a.factor === 'temperature' ? -1 : b.factor === 'temperature' ? 1 : factorMag(b) - factorMag(a))
+    .slice(0, CONFIG.characterMaxClauses);
   const clauses = picks.map(r => clauseFor(r, avg)).filter(Boolean);
   if (!clauses.length) return 'Comfortable and steady';
   const goods = clauses.filter(c => c[1]).map(c => c[0]); const bads = clauses.filter(c => !c[1]).map(c => c[0]);
