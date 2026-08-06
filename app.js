@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=25';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=25';
+import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=26';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=26';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -18,7 +18,7 @@ let units = store.get('gw.units', 'F');
 let cache = store.get('gw.cache', null);
 let onboarded = store.get('gw.onboarded', false) || store.get('gw.profile', null) !== null;
 let ob = null;
-const PLAN_YEARS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
+const PLAN_YEARS = [2019, 2020, 2021, 2022, 2023, 2024];
 let plan = { loc: store.get('gw.planloc', null), month: store.get('gw.planmonth', new Date().getUTCMonth() + 1), scored: null, locKey: null, loading: false, error: null };
 
 let forecast = null;

@@ -91,7 +91,7 @@ function daysFromArchive(j) {
 }
 export async function fetchHistoricalYears(lat, lon, years) {
   const y0 = Math.min(...years), y1 = Math.max(...years);
-  const hourly = 'temperature_2m,apparent_temperature,dew_point_2m,relative_humidity_2m,cloud_cover,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day';
+  const hourly = 'temperature_2m,apparent_temperature,dew_point_2m,cloud_cover,precipitation,weather_code,wind_speed_10m,is_day';
   const p = new URLSearchParams({ latitude: lat, longitude: lon, hourly, daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code', timezone: 'auto', temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'mm', start_date: `${y0}-01-01`, end_date: `${y1}-12-31` });
   const url = `https://archive-api.open-meteo.com/v1/archive?${p}`;
   let j = null;
