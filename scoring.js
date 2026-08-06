@@ -8,6 +8,7 @@ export const CONFIG = {
   cloudPenaltyExponent: 1.6,
   dewPointComfortableF: 55.0, dewPointOppressiveF: 72.0,
   mugginessScaleAtMinSensitivity: 0.35, mugginessScaleAtMaxSensitivity: 1.15,
+  mugginessGateFeelsF: 74.0,
   windComfortableMph: 4.0, windStrongAtMinSensitivity: 35.0, windStrongAtMaxSensitivity: 14.0,
   precipProbFloor: 0.10, precipIntensityRefMMh: 2.5, precipProbabilityBaseImpact: 0.5,
   aqiNoPenaltyBelow: 50, aqiFullPenaltyAt: 150,
@@ -116,7 +117,7 @@ function scoreInstant(inst, p, c, ageHours) {
   const cloudFull = cloudMatch(inst.cloud, p, c);
   const cloud = lerp(1.0, cloudFull, inst.daylightFraction);
   const daylight = daylightFactor(inst.daylightFraction, p, c);
-  const mug = mugginess(inst.dewF, p, c);
+  const mug = inst.apparentF >= c.mugginessGateFeelsF ? mugginess(inst.dewF, p, c) : null;
   const type = precipType(inst.weatherCode);
   const precip = precipitation(inst.precipProb, inst.precipMM, type, p, c);
   const aq = airQuality(inst.aqi, c);
@@ -126,7 +127,7 @@ function scoreInstant(inst, p, c, ageHours) {
   const add = (s, w) => { weightedSum += s * w; totalWeight += w; };
   add(temp, c.weightTemperature * p.importanceTemperature);
   add(cloud, c.weightSunSky * p.importanceSunSky);
-  add(mug, c.weightMugginess * p.importanceMugginess);
+  if (mug != null) add(mug, c.weightMugginess * p.importanceMugginess);
   add(precip, c.weightPrecipitation * p.importancePrecipitation);
   if (aq != null) add(aq, c.weightAirQuality);
   if (wind != null) add(wind, c.weightWind * p.importanceWind);
@@ -267,7 +268,7 @@ function averageComponents(list) {
   const n = list.length; if (!n) return {};
   const avg = (k) => list.reduce((a, x) => a + (x[k] ?? 0), 0) / n;
   const avgOpt = (k) => { const p = list.map(x => x[k]).filter(v => v != null); return p.length ? p.reduce((a, b) => a + b, 0) / p.length : null; };
-  return { temperature: avg('temperature'), sunSky: avg('sunSky'), mugginess: avg('mugginess'), precipitation: avg('precipitation'), airQuality: avgOpt('airQuality'), wind: avgOpt('wind') };
+  return { temperature: avg('temperature'), sunSky: avg('sunSky'), mugginess: avgOpt('mugginess'), precipitation: avg('precipitation'), airQuality: avgOpt('airQuality'), wind: avgOpt('wind') };
 }
 function breakdown(comps, p, c) {
   const order = ['temperature', 'sunSky', 'mugginess', 'precipitation', 'wind', 'airQuality'];

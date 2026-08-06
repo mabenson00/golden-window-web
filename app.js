@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=22';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=22';
+import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=23';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=23';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -119,9 +119,9 @@ function metricRow(ev) {
   return [
     mk('Feels like', Ts(raw.apparentF), mvTemp(comps.temperature)),
     mk('Clouds', `${Math.round(raw.cloud * 100)}%`, mvClouds(raw.cloud, comps.sunSky)),
-    mk('Dew point', Ts(raw.dewF), mvMug(comps.mugginess)),
+    comps.mugginess != null ? mk('Dew point', Ts(raw.dewF), mvMug(comps.mugginess)) : null,
     mk('Rain', `${Math.round(raw.precipProb * 100)}%`, mvRain(raw.precipProb, comps.precipitation)),
-  ];
+  ].filter(Boolean);
 }
 
 function dayAverages(ev) {
@@ -268,9 +268,9 @@ function hourDetailHTML(ev, s) {
   const m = [
     mk('Feels like', Ts(s.apparentF), mvTemp(c.temperature)),
     mk('Sun & sky', `${Math.round(raw.cloud * 100)}% cloud`, mvClouds(raw.cloud, c.sunSky)),
-    mk('Humidity', `${Ts(raw.dewF)} dew pt`, mvMug(c.mugginess)),
+    c.mugginess != null ? mk('Humidity', `${Ts(raw.dewF)} dew pt`, mvMug(c.mugginess)) : null,
     mk(isSnow ? 'Snow' : 'Rain', `${Math.round(raw.precipProb * 100)}%`, mvPrecip(type, raw.precipProb, c.precipitation)),
-  ];
+  ].filter(Boolean);
   return `<div class="hp-top"><span class="hp-t">${fmtClock(s.time)}</span><span class="hp-s c-${cl}">${scoreText(s.comfort / 10)} · ${band(s.comfort / 10)}</span><button class="hp-close" aria-label="Close">×</button></div>
     <div class="hp-verdict">${hourVerdict(roundedScore(s.comfort / 10))}${isNow ? ' · right now' : ''}.</div>
     <div class="hp-metrics">${m.map(x => `<div class="hm"><div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d c-${x.cls}">${x.d}</div></div>`).join('')}</div>`;
@@ -486,7 +486,7 @@ function planExpect(rows, years) {
   const feelsLo = mean(rows.map(r => Math.min(...r.day.hours.map(h => h.apparentF))));
   const dl = r => { const d = r.day.hours.filter(h => h.isDay); return d.length ? d : r.day.hours; };
   const cloud = mean(rows.map(r => mean(dl(r).map(h => h.cloud))));
-  const compAvg = f => mean(rows.map(r => { const us = r.ev.hourly.filter(h => h.isInOutdoorBand && h.isSafe); const p = us.length ? us : r.ev.hourly; return mean(p.map(h => h.components[f] ?? 0)); }));
+  const compAvg = f => { const vals = rows.flatMap(r => { const us = r.ev.hourly.filter(h => h.isInOutdoorBand && h.isSafe); const p = us.length ? us : r.ev.hourly; return p.map(h => h.components[f]).filter(v => v != null); }); return vals.length ? mean(vals) : null; };
   const cSun = compAvg('sunSky'), cMug = compAvg('mugginess');
   const dew = mean(rows.map(r => mean(r.day.hours.map(h => h.dewF))));
   const sunnyFrac = mean(rows.map(r => mean(dl(r).map(h => h.cloud)) < 0.4 ? 1 : 0));
@@ -498,7 +498,7 @@ function planExpect(rows, years) {
   return {
     feelsHi: Math.round(feelsHi), feelsLo: Math.round(feelsLo),
     sun: { word: sunWord, cls: compCls(cSun) },
-    mug: { word: dew >= CONFIG.summaryMuggyDewF ? 'Muggy afternoons' : (dew <= CONFIG.summaryDryDewF && feelsHi >= CONFIG.summaryDryMinFeelsF) ? 'Dry' : cMug >= 0.75 ? 'Comfortable' : 'Humid afternoons', cls: compCls(cMug) },
+    mug: (feelsHi >= CONFIG.mugginessGateFeelsF && cMug != null) ? { word: dew >= CONFIG.summaryMuggyDewF ? 'Muggy afternoons' : dew <= CONFIG.summaryDryDewF ? 'Dry' : cMug >= 0.75 ? 'Comfortable' : 'Humid afternoons', cls: compCls(cMug) } : null,
     rain: { word: `~${Math.round(rpm)} days`, note: rainNote, cls: rpm <= 6 ? 'good' : rpm <= 10 ? 'decent' : 'poor' },
   };
 }
@@ -571,7 +571,7 @@ function planExpectCard(a) {
   return `<div class="eyebrow">What to expect</div>
     ${row(p(MI['Feels like']), 'Feels-like high / low', `${Ts(e.feelsHi)} / ${Ts(e.feelsLo)}`, '')}
     ${row(SUN_IC, 'Sun', e.sun.word, e.sun.cls)}
-    ${row(p(MI['Dew point']), 'Mugginess', e.mug.word, e.mug.cls)}
+    ${e.mug ? row(p(MI['Dew point']), 'Mugginess', e.mug.word, e.mug.cls) : ''}
     ${row(p(MI.Rain), 'Rain', `${e.rain.word}<span class="sub">· ${e.rain.note}</span>`, e.rain.cls)}`;
 }
 function planYearCard() {
