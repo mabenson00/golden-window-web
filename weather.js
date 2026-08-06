@@ -68,6 +68,47 @@ export async function fetchForecast(lat, lon) {
   return { updatedAt: curTime, current, days, latitude: lat, longitude: lon };
 }
 
+async function fetchArchiveYear(lat, lon, y) {
+  const hourly = 'temperature_2m,apparent_temperature,dew_point_2m,relative_humidity_2m,cloud_cover,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day';
+  const p = new URLSearchParams({ latitude: lat, longitude: lon, hourly, daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code', timezone: 'auto', temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'mm', start_date: `${y}-01-01`, end_date: `${y}-12-31` });
+  const url = `https://archive-api.open-meteo.com/v1/archive?${p}`;
+  for (let a = 0; a < 5; a++) {
+    const r = await fetch(url);
+    if (r.ok) return r.json();
+    if (r.status === 429 || r.status >= 500) { await new Promise(s => setTimeout(s, 800 * (a + 1))); continue; }
+    throw new Error(`archive ${r.status}`);
+  }
+  return null;
+}
+export async function fetchHistoricalYears(lat, lon, years) {
+  const results = [];
+  let idx = 0;
+  const worker = async () => { while (idx < years.length) { const y = years[idx++]; try { const j = await fetchArchiveYear(lat, lon, y); if (j && j.hourly) results.push(j); } catch { idx += 0; } } };
+  await Promise.all([worker(), worker()]);
+  if (!results.length) throw new Error('archive unavailable');
+  const days = [];
+  for (const j of results) {
+    if (!j.hourly || !j.daily) continue;
+    const h = j.hourly;
+    const hours = h.time.map((iso, i) => ({
+      time: parseLocal(iso), dateKey: iso.slice(0, 10),
+      temperatureF: h.temperature_2m[i], apparentF: h.apparent_temperature[i], dewF: h.dew_point_2m[i],
+      humidity: (h.relative_humidity_2m[i] ?? 0) / 100, cloud: (h.cloud_cover[i] ?? 0) / 100,
+      precipProb: (h.precipitation[i] ?? 0) > 0.1 ? 1 : 0, precipMM: h.precipitation[i] ?? 0, weatherCode: h.weather_code[i],
+      windMph: h.wind_speed_10m[i] ?? 0, windGustMph: h.wind_gusts_10m[i] ?? 0, isDay: h.is_day[i] === 1, aqi: null, conditionText: conditionText(h.weather_code[i]),
+    }));
+    const byDay = {};
+    for (const hr of hours) (byDay[hr.dateKey] = byDay[hr.dateKey] || []).push(hr);
+    const dl = j.daily;
+    dl.time.forEach((iso, i) => {
+      const hrs = byDay[iso.slice(0, 10)];
+      if (!hrs || hrs.length < 20) return;
+      days.push({ dateKey: iso.slice(0, 10), month: +iso.slice(5, 7), dom: +iso.slice(8, 10), sunrise: parseLocal(dl.sunrise[i]), sunset: parseLocal(dl.sunset[i]), high: dl.temperature_2m_max[i], low: dl.temperature_2m_min[i], code: dl.weather_code[i], hours: hrs });
+    });
+  }
+  return days;
+}
+
 export async function geocode(query) {
   const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1`);
   if (!res.ok) throw new Error(`geocode ${res.status}`);

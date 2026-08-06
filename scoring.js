@@ -18,6 +18,8 @@ export const CONFIG = {
   dayBestWindowShare: 0.65, dayUsableAvgShare: 0.25, dayConsistencyShare: 0.10,
   daySummarySunnyCloudCeiling: 0.30, daySummaryCloudyCloudFloor: 0.65,
   daySummaryWetHourChance: 0.30, daySummaryWetDaytimeFraction: 0.34,
+  characterMaterialFloor: 0.03, characterMaxClauses: 4, characterRainDayFraction: 0.25,
+  summaryDryDewF: 55, summaryMuggyDewF: 68, summaryDryMinFeelsF: 68,
   breakdownSpoilerNeutralCeiling: 0.9,
   scoreDisplayDecimals: 1,
   bands: [

@@ -1,5 +1,5 @@
-import { fetchForecast, geocode, roundCoord, conditionText } from './weather.js';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js';
+import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=22';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=22';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -18,6 +18,8 @@ let units = store.get('gw.units', 'F');
 let cache = store.get('gw.cache', null);
 let onboarded = store.get('gw.onboarded', false) || store.get('gw.profile', null) !== null;
 let ob = null;
+const PLAN_YEARS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
+let plan = { loc: store.get('gw.planloc', null), month: store.get('gw.planmonth', new Date().getUTCMonth() + 1), scored: null, locKey: null, loading: false, error: null };
 
 let forecast = null;
 let fetchedReal = 0;
@@ -132,20 +134,27 @@ function dayAverages(ev) {
 }
 function clauseFor(r, avg) {
   switch (r.factor) {
-    case 'temperature': if (r.helped) return ['comfortable temps', true]; if (avg.apparentF >= profile.idealFeelsLikeF) return [avg.apparentF - profile.idealFeelsLikeF > 12 ? 'too hot' : 'a bit warm', false]; return [profile.idealFeelsLikeF - avg.apparentF > 12 ? 'too cold' : 'a bit cool', false];
-    case 'sunSky': { const word = avg.cloud < CONFIG.daySummarySunnyCloudCeiling ? 'sunny' : (avg.cloud >= CONFIG.daySummaryCloudyCloudFloor ? 'cloudy' : 'hazy sun'); return [word, r.helped]; }
-    case 'mugginess': if (r.helped) return ['dry air', true]; return [avg.dewF >= 70 ? 'muggy' : 'humid', false];
-    case 'precipitation': return [avg.precipType === 'snow' ? 'snowy' : 'rainy', r.helped];
-    case 'wind': return [r.helped ? 'calm' : 'windy', r.helped];
-    case 'airQuality': return [r.helped ? 'clean air' : 'poor air', r.helped];
-    default: return ['', true];
+    case 'temperature': if (r.helped) return ['comfortable', true]; if (avg.apparentF >= profile.idealFeelsLikeF) return [avg.apparentF - profile.idealFeelsLikeF > 12 ? 'too hot' : 'a bit warm', false]; return [profile.idealFeelsLikeF - avg.apparentF > 12 ? 'too cold' : 'a bit cool', false];
+    case 'sunSky': if (avg.cloud < CONFIG.daySummarySunnyCloudCeiling) return ['sunny', true]; if (avg.cloud >= CONFIG.daySummaryCloudyCloudFloor) return ['cloudy', false]; return r.helped ? ['hazy sun', true] : ['gray skies', false];
+    case 'mugginess': if (avg.dewF >= CONFIG.summaryMuggyDewF) return ['muggy', false]; if (avg.dewF <= CONFIG.summaryDryDewF) return avg.apparentF >= CONFIG.summaryDryMinFeelsF ? ['dry', true] : null; return r.helped ? null : ['humid', false];
+    case 'precipitation': return [avg.precipType === 'snow' ? 'snowy' : 'rainy', false];
+    case 'wind': return r.helped ? ['calm', true] : ['windy', false];
+    case 'airQuality': return r.helped ? ['clean air', true] : ['hazy air', false];
+    default: return null;
   }
 }
+function joinList(xs) { if (xs.length <= 1) return xs[0] || ''; if (xs.length === 2) return `${xs[0]} and ${xs[1]}`; return `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`; }
 function combineClauses(ranked, avg) {
-  const clauses = ranked.slice(0, 2).map(r => clauseFor(r, avg));
+  if (!ranked.length) return 'Comfortable and steady';
+  if (factorMag(ranked[0]) < CONFIG.characterMaterialFloor) return 'Comfortable and steady';
+  const picks = ranked
+    .filter(r => factorMag(r) >= CONFIG.characterMaterialFloor)
+    .slice(0, CONFIG.characterMaxClauses)
+    .sort((a, b) => a.factor === b.factor ? 0 : a.factor === 'temperature' ? -1 : b.factor === 'temperature' ? 1 : factorMag(b) - factorMag(a));
+  const clauses = picks.map(r => clauseFor(r, avg)).filter(Boolean);
+  if (!clauses.length) return 'Comfortable and steady';
   const goods = clauses.filter(c => c[1]).map(c => c[0]); const bads = clauses.filter(c => !c[1]).map(c => c[0]);
-  const join = xs => xs.join(' and ');
-  const phrase = (goods.length && bads.length) ? `${join(goods)} but ${join(bads)}` : join(goods.length ? goods : bads);
+  const phrase = (goods.length && bads.length) ? `${joinList(goods)} but ${joinList(bads)}` : joinList(goods.length ? goods : bads);
   return phrase.charAt(0).toUpperCase() + phrase.slice(1);
 }
 function characterPhrase(ev) {
@@ -432,6 +441,209 @@ function viewDay(root, i) {
   root.append(wrap);
 }
 
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DIM = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const mean = a => a.reduce((x, y) => x + y, 0) / (a.length || 1);
+const PLAN_ICON = '<svg class="icon sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>';
+
+function planScore(days) {
+  const p = { ...sensibleDefault, ...profile };
+  return days.map(d => {
+    const ev = evaluateDay({ updatedAt: d.hours[0].time, current: null, days: [d], latitude: 0, longitude: 0 }, 0, p, d.hours[0].time);
+    return { month: d.month, dom: d.dom, score: ev.displayedDayScore, ev, day: d };
+  });
+}
+function planYear(scored) {
+  const byM = {}; for (const r of scored) (byM[r.month] = byM[r.month] || []).push(r.score);
+  const out = []; for (let m = 1; m <= 12; m++) out.push({ month: m, score: byM[m] && byM[m].length ? mean(byM[m]) : null });
+  return out;
+}
+function bestWindow(perDom) {
+  const n = perDom.length, w = Math.min(12, Math.max(7, Math.round(n * 0.4)));
+  let best = { start: 1, end: w, avg: -1 };
+  for (let i = 0; i + w <= n; i++) { const seg = perDom.slice(i, i + w).filter(x => x != null); if (!seg.length) continue; const a = mean(seg); if (a > best.avg) best = { start: i + 1, end: i + w, avg: a }; }
+  return best;
+}
+function planCharacter(rows) {
+  const avgs = rows.map(r => dayAverages(r.ev)).filter(Boolean);
+  if (!avgs.length) return 'A mixed month.';
+  const wetDays = rows.filter(r => r.day.hours.reduce((a, h) => a + h.precipMM, 0) >= 2.5);
+  const wetFrac = wetDays.length / rows.length;
+  const wetHours = wetDays.flatMap(r => r.day.hours).filter(h => precipType(h.weatherCode) !== 'none');
+  const snowy = wetHours.length > 0 && wetHours.filter(h => precipType(h.weatherCode) === 'snow').length / wetHours.length >= 0.5;
+  const A = { apparentF: mean(avgs.map(a => a.apparentF)), cloud: mean(avgs.map(a => a.cloud)), dewF: mean(avgs.map(a => a.dewF)), precipType: snowy ? 'snow' : 'rain' };
+  const agg = {};
+  for (const r of rows) for (const b of r.ev.breakdown) { if (b.factor === 'precipitation') continue; const x = agg[b.factor] = agg[b.factor] || { factor: b.factor, label: b.label, weight: b.weight, s: [] }; x.s.push(b.score); }
+  const ranked = Object.values(agg).map(x => ({ factor: x.factor, label: x.label, weight: x.weight, score: mean(x.s), helped: CAN_HELP[x.factor] ? mean(x.s) >= 0.5 : false }));
+  if (wetFrac >= CONFIG.characterRainDayFraction) ranked.push({ factor: 'precipitation', label: 'Rain', weight: CONFIG.weightPrecipitation, score: 1 - wetFrac, helped: false });
+  ranked.sort((a, b) => factorMag(b) - factorMag(a));
+  const material = ranked.filter(r => factorMag(r) > 1e-6);
+  return material.length ? combineClauses(material, A) : 'Comfortable and steady.';
+}
+function planExpect(rows, years) {
+  const feelsHi = mean(rows.map(r => Math.max(...r.day.hours.filter(h => h.isDay).map(h => h.apparentF).concat([-99]))));
+  const feelsLo = mean(rows.map(r => Math.min(...r.day.hours.map(h => h.apparentF))));
+  const dl = r => { const d = r.day.hours.filter(h => h.isDay); return d.length ? d : r.day.hours; };
+  const cloud = mean(rows.map(r => mean(dl(r).map(h => h.cloud))));
+  const compAvg = f => mean(rows.map(r => { const us = r.ev.hourly.filter(h => h.isInOutdoorBand && h.isSafe); const p = us.length ? us : r.ev.hourly; return mean(p.map(h => h.components[f] ?? 0)); }));
+  const cSun = compAvg('sunSky'), cMug = compAvg('mugginess');
+  const dew = mean(rows.map(r => mean(r.day.hours.map(h => h.dewF))));
+  const sunnyFrac = mean(rows.map(r => mean(dl(r).map(h => h.cloud)) < 0.4 ? 1 : 0));
+  const sunWord = sunnyFrac >= 0.6 ? 'Generally sunny' : cloud < 0.45 ? 'Mostly sunny' : cloud < 0.65 ? 'Sun and clouds' : 'Often cloudy';
+  const wetDays = rows.filter(r => r.day.hours.reduce((a, h) => a + h.precipMM, 0) >= 2.5);
+  const isSoaker = r => { const tot = r.day.hours.reduce((a, h) => a + h.precipMM, 0); const wet = r.day.hours.filter(h => h.precipMM >= 0.2).length; return wet >= 5 || tot >= 10; };
+  const rpm = wetDays.length / years, soakPm = wetDays.filter(isSoaker).length / years, showerPm = rpm - soakPm;
+  const rainNote = rpm < 0.5 ? 'rarely' : Math.round(soakPm) === 0 ? 'brief showers' : Math.round(showerPm) === 0 ? 'soaking rain' : `${Math.round(soakPm)} soaking`;
+  return {
+    feelsHi: Math.round(feelsHi), feelsLo: Math.round(feelsLo),
+    sun: { word: sunWord, cls: compCls(cSun) },
+    mug: { word: dew >= CONFIG.summaryMuggyDewF ? 'Muggy afternoons' : (dew <= CONFIG.summaryDryDewF && feelsHi >= CONFIG.summaryDryMinFeelsF) ? 'Dry' : cMug >= 0.75 ? 'Comfortable' : 'Humid afternoons', cls: compCls(cMug) },
+    rain: { word: `~${Math.round(rpm)} days`, note: rainNote, cls: rpm <= 6 ? 'good' : rpm <= 10 ? 'decent' : 'poor' },
+  };
+}
+function planHeads(rows, years) {
+  const per = n => Math.max(1, Math.round(n / years));
+  const hot = rows.filter(r => r.day.hours.some(h => h.isDay && h.apparentF >= 100)).length;
+  const cold = rows.filter(r => r.day.hours.some(h => h.apparentF <= 15)).length;
+  const storm = rows.filter(r => r.day.hours.some(h => [95, 96, 99].includes(h.weatherCode))).length;
+  const maxFeels = Math.round(Math.max(...rows.flatMap(r => r.day.hours.map(h => h.apparentF))));
+  if (hot >= years) return { warn: true, text: `Hot — about ${per(hot)} day${per(hot) > 1 ? 's' : ''} a month typically reach dangerous heat (felt as high as ${maxFeels}°). Plan indoor midday breaks.` };
+  if (storm >= years) return { warn: true, text: `Thunderstorms on ~${per(storm)} days a month. Keep a flexible plan.` };
+  if (cold >= years) return { warn: true, text: `Cold — around ${per(cold)} day${per(cold) > 1 ? 's' : ''} a month turn dangerously cold. Bundle up.` };
+  return { warn: false, text: `Nothing extreme — no dangerous heat or cold in ${years} years. The hottest it ever felt was ${maxFeels}°.` };
+}
+function planMonth(scored, month) {
+  const rows = scored.filter(r => r.month === month);
+  if (!rows.length) return null;
+  const scores = rows.map(r => r.score).sort((a, b) => a - b);
+  const years = new Set(rows.map(r => r.day.dateKey.slice(0, 4))).size;
+  const dim = DIM[month - 1];
+  const dist = { golden: 0, great: 0, good: 0, decent: 0, poor: 0, bad: 0 };
+  for (const r of rows) dist[bandCls(r.score)]++;
+  const distMonth = {}; for (const k in dist) distMonth[k] = Math.round(dist[k] / years);
+  const byDom = {}; for (const r of rows) (byDom[r.dom] = byDom[r.dom] || []).push(r.score);
+  const perDom = []; for (let d = 1; d <= dim; d++) perDom.push(byDom[d] && byDom[d].length ? mean(byDom[d]) : null);
+  return {
+    month, typical: mean(scores), band: band(mean(scores)), dist: distMonth, perDom, dim, years,
+    goodPct: Math.round(100 * scores.filter(s => s >= 7).length / scores.length),
+    lo: scores[Math.floor(scores.length * 0.1)], hi: scores[Math.floor(scores.length * 0.9)],
+    character: planCharacter(rows), expect: planExpect(rows, years), heads: planHeads(rows, years), sweet: bestWindow(perDom),
+  };
+}
+
+async function planSearch(q) { try { const r = await geocode(q); if (!r) return false; loadPlan({ lat: r.lat, lon: r.lon, name: r.name }); return true; } catch { return false; } }
+async function loadPlan(loc) {
+  plan.loc = loc; store.set('gw.planloc', loc); store.set('gw.planmonth', plan.month);
+  const key = `${roundCoord(loc.lat)},${roundCoord(loc.lon)}`;
+  if (plan.locKey === key && plan.scored) { route(); return; }
+  plan.loading = true; plan.error = null; plan.scored = null; plan.locKey = key; route();
+  try {
+    const days = await fetchHistoricalYears(roundCoord(loc.lat), roundCoord(loc.lon), PLAN_YEARS);
+    if (plan.locKey !== key) return;
+    plan.scored = planScore(days); plan.loading = false; route();
+  } catch (e) { plan.loading = false; plan.error = e; route(); }
+}
+function setPlanMonth(m) { plan.month = m; store.set('gw.planmonth', m); route(); }
+
+function planCalendar(a) {
+  const cells = a.perDom.map((v, i) => {
+    const d = i + 1; const sweet = d >= a.sweet.start && d <= a.sweet.end;
+    if (v == null) return `<div class="pcell empty"><span class="d">${d}</span></div>`;
+    const cls = bandCls(v), inten = Math.round(Math.max(0, Math.min(1, (v - 5) / 4)) * 34 + 8);
+    return `<div class="pcell${sweet ? ' sweet' : ''}" style="background:color-mix(in srgb,var(--${cls}) ${inten}%,var(--card))"><span class="d">${d}</span><span class="sc c-${cls}">${scoreText(v)}</span></div>`;
+  }).join('');
+  return `<div class="pcal-head"><span class="t">Day by day — when to go</span><span class="pcal-leg"><i style="background:color-mix(in srgb,var(--great) 42%,#fff)"></i>Great <i style="background:color-mix(in srgb,var(--good) 26%,#fff)"></i>Good <i style="background:color-mix(in srgb,var(--decent) 22%,#fff)"></i>Decent</span></div>
+    <div class="pcal">${cells}</div>
+    <div class="pcal-note"><b>${MONTHS_SHORT[a.month - 1]} ${a.sweet.start}–${a.sweet.end} is your sweet spot</b> (outlined) — the best stretch of the month for you.</div>`;
+}
+function planOdds(a) {
+  const order = ['golden', 'great', 'good', 'decent', 'poor', 'bad'], lbl = { golden: 'Gold', great: 'Great', good: 'Good', decent: 'Dec', poor: 'Poor', bad: 'Bad' };
+  const max = Math.max(1, ...order.map(k => a.dist[k]));
+  const bars = order.map(k => { const c = a.dist[k], h = Math.round(Math.max(4, c / max * 100)); const on = c > 0; return `<div class="pbar"><span class="v ${on ? 'c-' + k : 'c-muted'}">${c}</span><div class="pfill" style="height:${h}%;background:${on ? 'var(--' + k + ')' : 'var(--hair)'}"></div><span class="k">${lbl[k]}</span></div>`; }).join('');
+  return `<div class="eyebrow">What are the odds</div><div class="pdist">${bars}</div><div class="psum"><b>About ${Math.round(a.goodPct / 10)} in 10 days are Good or better${a.goodPct >= 50 ? '' : ' — a mixed month'}.</b> Typical day lands ${scoreText(a.lo)}–${scoreText(a.hi)}.</div>`;
+}
+const SUN_IC = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+function planExpectCard(a) {
+  const e = a.expect;
+  const row = (inner, lab, val, cls) => `<div class="exprow"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg><span class="lab">${lab}</span><span class="val ${cls ? 'c-' + cls : ''}">${cls ? `<span class="dot" style="background:var(--${cls})"></span>` : ''}${val}</span></div>`;
+  const p = d => `<path d="${d}"/>`;
+  return `<div class="eyebrow">What to expect</div>
+    ${row(p(MI['Feels like']), 'Feels-like high / low', `${Ts(e.feelsHi)} / ${Ts(e.feelsLo)}`, '')}
+    ${row(SUN_IC, 'Sun', e.sun.word, e.sun.cls)}
+    ${row(p(MI['Dew point']), 'Mugginess', e.mug.word, e.mug.cls)}
+    ${row(p(MI.Rain), 'Rain', `${e.rain.word}<span class="sub">· ${e.rain.note}</span>`, e.rain.cls)}`;
+}
+function planYearCard() {
+  const yr = planYear(plan.scored), vals = yr.filter(m => m.score != null).map(m => m.score);
+  const lo = Math.min(...vals) - 0.4, hi = Math.max(...vals) + 0.2;
+  const bars = yr.map(m => {
+    if (m.score == null) return `<div class="ybar"><span class="k">${MONTHS_SHORT[m.month - 1]}</span></div>`;
+    const cls = bandCls(m.score), h = Math.round(Math.max(6, (m.score - lo) / (hi - lo) * 100)), sel = m.month === plan.month;
+    return `<a class="ybar${sel ? ' sel' : ''}" href="#/plan" onclick="return false" data-m="${m.month}"><span class="v c-${cls}">${scoreText(m.score)}</span><div class="yfill" style="height:${h}%;background:var(--${cls})"></div><span class="k">${MONTHS_SHORT[m.month - 1]}</span></a>`;
+  }).join('');
+  const ranked = yr.filter(m => m.score != null).sort((a, b) => b.score - a.score);
+  const rank = ranked.findIndex(m => m.month === plan.month) + 1;
+  return { html: `<div class="eyebrow">Best months here · for you — the whole year</div><div class="pyear">${bars}</div><div class="pyear-note">${MONTHS[plan.month - 1]} ranks <b>#${rank} of 12</b> here${rank <= 3 ? ' — one of your best bets' : ''}. Tap a month to switch.</div>`, ranked };
+}
+
+function planHeader() {
+  return el('div', { class: 'plan-topline' }, [
+    el('div', { class: 'crumb', html: `<a href="#/plan" onclick="return false" id="plan-change">← Change place</a> · ${plan.loc.name}` }),
+    el('div', { class: 'plan-monthpick' }, MONTHS_SHORT.map((m, i) => el('button', { class: 'pm' + (plan.month === i + 1 ? ' on' : ''), onclick: () => setPlanMonth(i + 1) }, [m]))),
+  ]);
+}
+function planEntry() {
+  const err = el('div', { class: 'err-inline', style: 'text-align:center' });
+  const inp = el('input', { class: 'addr-in', placeholder: 'Search a city…', onkeydown: async e => { if (e.key === 'Enter' && e.target.value.trim()) { err.textContent = ''; const ok = await planSearch(e.target.value.trim()); if (!ok) err.textContent = 'No match — try another name.'; } } });
+  const grid = el('div', { class: 'plan-months' }, MONTHS_SHORT.map((m, i) => el('button', { class: 'mo' + (plan.month === i + 1 ? ' on' : ''), onclick: () => { plan.month = i + 1; store.set('gw.planmonth', plan.month); route(); } }, [m])));
+  return el('div', { class: 'plan-entry' }, [
+    el('div', { class: 'plan-glyph' }, ['🧭']),
+    el('h2', {}, ['Plan around your weather']),
+    el('p', { class: 'plan-tag' }, ['See how good a place is likely to feel — for you — in any month, from years of history.']),
+    el('div', { class: 'search plan-search', html: PLAN_ICON }, [inp]),
+    err, grid,
+    el('p', { class: 'plan-hint2' }, [`Pick a month, then search a place. Scored over ${PLAN_YEARS.length} years of history.`]),
+  ]);
+}
+function planLoading() {
+  return el('div', { class: 'plan-loading' }, [el('div', { class: 'plan-spin' }), el('div', {}, [`Reading ${PLAN_YEARS.length} years of ${MONTHS[plan.month - 1]} in ${plan.loc.name.split(',')[0]}…`]), el('div', { class: 'plan-sub' }, ['Scoring every historical day for you.'])]);
+}
+
+function planResults() {
+  const a = planMonth(plan.scored, plan.month);
+  if (!a) return el('div', { class: 'card' }, ['No data for this month.']);
+  const golden = isGolden(a.typical), cls = bandCls(a.typical);
+  const hero = el('section', { class: 'card hero' }, [
+    el('div', { class: 'hero-rail', html:
+      `<div class="eyebrow ${golden ? 'gold-text' : ''}">Typical ${MONTHS[a.month - 1]} · for you</div>
+       <div class="score-row"><div class="ring-wrap">${ringSVG(a.typical, golden)}<div class="ring-num"><span class="s ${golden ? 'gold-text' : ''}">${scoreText(a.typical)}</span><span class="d">/ 10</span></div></div>
+         <div class="verdict"><div class="vw"><span class="${golden ? 'gold-text' : 'c-' + cls}">${band(a.typical)}${golden ? ' <span class="spark">✦</span>' : ''}</span> <span class="now-badge c-${cls}" style="border-color:color-mix(in srgb,var(--${cls}) 40%,transparent);background:color-mix(in srgb,var(--${cls}) 12%,transparent);font-size:11px">TYPICAL</span></div><div class="vsub">${a.character}.</div></div></div>
+       <div class="hero-divider"></div>
+       <div class="hero-stat"><span class="hs-k">Usual range</span><span class="hs-v">${scoreText(a.lo)} – ${scoreText(a.hi)} · ${band(a.lo)} to ${band(a.hi)}</span></div>
+       <div class="hero-stat"><span class="hs-k">Based on</span><span class="hs-v">${a.years} ${MONTHS_SHORT[a.month - 1]}s · ${PLAN_YEARS[0]}–${PLAN_YEARS[PLAN_YEARS.length - 1]}</span></div>` }),
+    el('div', { class: 'pcalwrap', html: planCalendar(a) }),
+  ]);
+  const dash = el('div', { class: 'dash' }, [el('section', { class: 'card', html: planOdds(a) }), el('section', { class: 'card', html: planExpectCard(a) })]);
+  const yc = planYearCard();
+  const year = el('section', { class: 'card', style: 'margin-top:20px', html: yc.html });
+  year.querySelectorAll('.ybar[data-m]').forEach(b => b.addEventListener('click', () => setPlanMonth(+b.dataset.m)));
+  const heads = el('section', { class: 'card' + (a.heads.warn ? ' plan-warn' : ' calm'), html: `<span class="k">Heads up</span><p>${a.heads.text}</p>` });
+  const foot = el('div', { class: 'footnote' }, ['Typical values from history — not a forecast. Plan the fine detail closer to your dates.']);
+  return el('div', {}, [hero, dash, year, heads, foot]);
+}
+
+function viewPlan(root) {
+  const wrap = el('div', { class: 'wrap' });
+  if (!plan.loc) { wrap.append(planEntry(), footer()); root.append(wrap); return; }
+  wrap.append(planHeader());
+  if (plan.loading) { wrap.append(planLoading()); root.append(wrap); return; }
+  if (plan.error) { wrap.append(el('div', { class: 'state-center err', html: `<h2>Couldn't load the history</h2><p>The weather archive didn't respond. Try again.</p>` }), el('div', { style: 'text-align:center' }, [el('button', { class: 'btn', onclick: () => loadPlan(plan.loc) }, ['Try again'])])); root.append(wrap); return; }
+  if (!plan.scored) { wrap.append(planEntry()); root.append(wrap); return; }
+  wrap.append(planResults(), footer());
+  root.append(wrap);
+}
+
 function viewSettings(root) {
   const wrap = el('div', { class: 'wrap' });
   const save = () => store.set('gw.profile', profile);
@@ -516,8 +728,8 @@ function topbar() {
   const bar = el('header', { class: 'topbar' });
   bar.append(el('a', { class: 'brand', href: '#/today', html: `<img src="icon.svg" alt=""><span class="name">Golden Window</span>` }));
   const nav = el('nav', { class: 'nav' });
-  [['Today', '#/today'], ['Week', '#/week'], ['Settings', '#/settings']].forEach(([t, h]) => {
-    const active = (h === '#/today' && isTodayPath(path)) || (h === '#/week' && path.startsWith('#/week')) || (h === '#/settings' && path.startsWith('#/settings'));
+  [['Today', '#/today'], ['Week', '#/week'], ['Plan', '#/plan'], ['Settings', '#/settings']].forEach(([t, h]) => {
+    const active = (h === '#/today' && isTodayPath(path)) || (h === '#/week' && path.startsWith('#/week')) || (h === '#/plan' && path.startsWith('#/plan')) || (h === '#/settings' && path.startsWith('#/settings'));
     nav.append(el('a', { href: h, class: active ? 'on' : '' }, [t]));
   });
   bar.append(nav, el('span', { class: 'grow' }));
@@ -539,6 +751,8 @@ function navigate(h) { if (window.location.hash === h) route(); else window.loca
 function route() {
   const root = $('#root'); if (!root) return;
   root.innerHTML = '';
+  const path0 = locationHash();
+  if (path0.startsWith('#/plan')) { root.append(topbarSafe()); return viewPlan(root); }
   if (!forecast && loadError) { root.append(topbarSafe(), errorState()); return; }
   if (!forecast) { root.append(topbarSafe(), loadingState()); return; }
   root.append(topbar());
