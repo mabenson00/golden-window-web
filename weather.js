@@ -139,4 +139,11 @@ export async function geocode(query) {
   return { lat: r.latitude, lon: r.longitude, name: [r.name, r.admin1, r.country_code].filter(Boolean).join(', ') };
 }
 
+export async function geocodeList(query, count = 6) {
+  const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=${count}`);
+  if (!res.ok) throw new Error(`geocode ${res.status}`);
+  const j = await res.json();
+  return (j.results || []).map(r => ({ lat: r.latitude, lon: r.longitude, name: [r.name, r.admin1, r.country_code].filter(Boolean).join(', ') }));
+}
+
 export function roundCoord(x) { return Math.round(x * 100) / 100; }

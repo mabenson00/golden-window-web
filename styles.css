@@ -1,5 +1,5 @@
 :root{
-  --bg:#EAEEF3; --card:#FFFFFF; --card2:#F4F7FA; --ink:#131C29; --ink2:#2B3849; --muted:#586778; --faint:#93A1B2; --hair:rgba(19,28,41,.12); --hair2:rgba(19,28,41,.07);
+  --bg:#F6F8FC; --card:#FFFFFF; --card2:#EEF2F7; --ink:#131C29; --ink2:#2B3849; --muted:#586778; --faint:#93A1B2; --hair:rgba(19,28,41,.12); --hair2:rgba(19,28,41,.07);
   --golden:#D89A1B; --great:#248A4D; --good:#48A86C; --decent:#8C8674; --poor:#D95D38; --bad:#B83A2C;
   --gold-bright:#F6CC5A; --gold-deep:#C6870F;
   --accent:#2E557F; --accent-deep:#1E3E60; --brand-gold:#F2B544; --brand-navy:#13213A; --brand-sky:#AFCFF3; --brand-pale:#E7F1FC;
@@ -324,6 +324,15 @@ input[type=range]:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--acc
 .plan-tag{font-size:16px;color:var(--muted);max-width:400px;line-height:1.5}
 .plan-search{width:100%;max-width:420px}
 .plan-search .addr-in{border:0;background:transparent;flex:1;font-size:15px;outline:none;font-family:var(--sans);color:var(--ink)}
+.plan-searchbar{display:flex;align-items:center;gap:8px;width:100%;max-width:470px;background:var(--card);border:1.5px solid var(--hair);border-radius:14px;padding:6px 6px 6px 15px}
+.plan-searchbar:focus-within{border-color:var(--accent)}
+.plan-searchbar .ps-ic{color:var(--faint);display:flex;flex:none}
+.plan-searchbar .addr-in{flex:1;border:0;background:transparent;font-size:15.5px;outline:none;font-family:var(--sans);color:var(--ink)}
+.plan-go{flex:none;white-space:nowrap}
+.plan-results{width:100%;max-width:470px;display:flex;flex-direction:column;gap:4px}
+.plan-res{display:flex;align-items:center;gap:11px;padding:12px 15px;border-radius:12px;border:1px solid var(--hair2);background:var(--card);text-align:left;font-size:14.5px;font-weight:600;color:var(--ink);width:100%}
+.plan-res:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 5%,var(--card))}
+.plan-res .pin{color:var(--accent);display:flex;flex:none}
 .plan-months{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;width:100%;max-width:460px}
 .plan-months .mo{padding:12px 0;text-align:center;border-radius:12px;border:1px solid var(--hair);background:var(--card);font-size:14px;font-weight:700;color:var(--muted)}
 .plan-months .mo.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card))}

@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=31';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=31';
+import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=34';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=34';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -419,9 +419,10 @@ function miniSpark(ev) {
   if (data.length < 2) data = ev.hourly.slice();
   const W = 150, H = 34, domS = data[0].time, domE = data[data.length - 1].time, span = Math.max(1, domE - domS);
   const X = t => 3 + (t - domS) / span * (W - 6), Y = c => H - 3 - Math.max(0, Math.min(1, c / 100)) * (H - 8);
-  const P = data.map(h => ({ x: X(h.time), y: Y(h.comfort) }));
-  const cls = isGolden(ev.displayedDayScore) ? 'golden' : bandCls(ev.displayedDayScore);
-  return `<svg class="wspark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${smoothPath(P)}" fill="none" stroke="var(--${cls})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/></svg>`;
+  const P = data.map(h => ({ x: X(h.time), y: Y(h.comfort), c: h.comfort }));
+  const uid = (ev.dateKey || ('i' + ev.index)).replace(/[^a-z0-9]/gi, '');
+  const stops = P.map(p => `<stop offset="${(((p.x - 3) / (W - 6)) * 100).toFixed(1)}%" stop-color="${CSSV('--' + bandClsComfort(p.c))}"/>`).join('');
+  return `<svg class="wspark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sp${uid}" gradientUnits="userSpaceOnUse" x1="3" y1="0" x2="${W - 3}" y2="0">${stops}</linearGradient></defs><path d="${smoothPath(P)}" fill="none" stroke="url(#sp${uid})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity=".95"/></svg>`;
 }
 
 function weekMiniCard(week) {
@@ -689,17 +690,32 @@ function planHeader() {
     el('div', { class: 'crumb', html: `<a href="#/plan" onclick="return false" id="plan-change">← Change place</a> · ${plan.loc.name}` }),
   ]);
 }
+const PLAN_PIN = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
 function planEntry() {
   const err = el('div', { class: 'err-inline', style: 'text-align:center' });
-  const inp = el('input', { class: 'addr-in', placeholder: 'Search a city…', onkeydown: async e => { if (e.key === 'Enter' && e.target.value.trim()) { err.textContent = ''; const ok = await planSearch(e.target.value.trim()); if (!ok) err.textContent = 'No match — try another name.'; } } });
-  const grid = el('div', { class: 'plan-months' }, MONTHS_SHORT.map((m, i) => el('button', { class: 'mo' + (plan.month === i + 1 ? ' on' : ''), onclick: () => { plan.month = i + 1; store.set('gw.planmonth', plan.month); route(); } }, [m])));
+  const results = el('div', { class: 'plan-results' });
+  let timer, reqId = 0;
+  const doSearch = async (q) => {
+    q = (q || '').trim(); err.textContent = '';
+    if (q.length < 2) { results.innerHTML = ''; return; }
+    const id = ++reqId;
+    try {
+      const list = await geocodeList(q, 6);
+      if (id !== reqId) return;
+      results.innerHTML = '';
+      if (!list.length) { err.textContent = 'No matches — try another spelling.'; return; }
+      list.forEach(loc => results.append(el('button', { class: 'plan-res', onclick: () => loadPlan(loc) }, [el('span', { class: 'pin', html: PLAN_PIN }), el('span', {}, [loc.name])])));
+    } catch { if (id === reqId) { results.innerHTML = ''; err.textContent = "Couldn't search just now — try again."; } }
+  };
+  const inp = el('input', { class: 'addr-in', placeholder: 'Search for a city…', autocomplete: 'off', spellcheck: 'false', onkeydown: e => { if (e.key === 'Enter') { clearTimeout(timer); doSearch(e.target.value); } }, oninput: e => { clearTimeout(timer); const q = e.target.value; timer = setTimeout(() => doSearch(q), 280); } });
+  const btn = el('button', { class: 'btn sm plan-go', onclick: () => { clearTimeout(timer); doSearch(inp.value); } }, ['Search']);
   return el('div', { class: 'plan-entry' }, [
     el('div', { class: 'plan-glyph' }, ['🧭']),
     el('h2', {}, ['Plan around your weather']),
     el('p', { class: 'plan-tag' }, ['See how good a place is likely to feel — for you — in any month, from years of history.']),
-    el('div', { class: 'search plan-search', html: PLAN_ICON }, [inp]),
-    err, grid,
-    el('p', { class: 'plan-hint2' }, [`Pick a month, then search a place. Scored over ${PLAN_YEARS.length} years of history.`]),
+    el('div', { class: 'plan-searchbar' }, [el('span', { class: 'ps-ic', html: PLAN_ICON }), inp, btn]),
+    err, results,
+    el('p', { class: 'plan-hint2' }, [`Search a place and pick it from the list — you'll choose the month next. Scored over ${PLAN_YEARS.length} years of history.`]),
   ]);
 }
 function planLoading() {
