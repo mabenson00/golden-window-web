@@ -109,6 +109,18 @@ async function histCacheSet(key, val) {
   try { const db = await openHistDB(); await new Promise((res, rej) => { const q = db.transaction('days', 'readwrite').objectStore('days').put(val, key); q.onsuccess = () => res(); q.onerror = () => rej(q.error); }); }
   catch { return; }
 }
+const ARCHIVE_DIRECT = 'https://archive-api.open-meteo.com/v1/archive';
+const ARCHIVE_PROXY = '';
+async function fetchArchive(qs) {
+  const bases = ARCHIVE_PROXY ? [ARCHIVE_PROXY, ARCHIVE_DIRECT] : [ARCHIVE_DIRECT];
+  let last;
+  for (const base of bases) {
+    try { const r = await fetch(`${base}?${qs}`); if (r.ok) return r; last = r; }
+    catch (e) { last = e; }
+  }
+  if (last instanceof Response) return last;
+  throw (last instanceof Error ? last : new Error('archive unreachable'));
+}
 export async function fetchHistoricalYears(lat, lon, years) {
   const y0 = Math.min(...years), y1 = Math.max(...years);
   const cacheKey = `${HIST_CACHE_VERSION}:${lat},${lon}:${y0}-${y1}`;
@@ -116,10 +128,11 @@ export async function fetchHistoricalYears(lat, lon, years) {
   if (cached && cached.length) return cached;
   const hourly = 'apparent_temperature,dew_point_2m,cloud_cover,precipitation,weather_code,wind_speed_10m,is_day';
   const p = new URLSearchParams({ latitude: lat, longitude: lon, hourly, daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code', timezone: 'auto', temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'mm', start_date: `${y0}-01-01`, end_date: `${y1}-12-31` });
-  const url = `https://archive-api.open-meteo.com/v1/archive?${p}`;
+  const qs = p.toString();
   let j = null;
   for (let a = 0; a < 4; a++) {
-    const r = await fetch(url);
+    let r;
+    try { r = await fetchArchive(qs); } catch (e) { if (a < 3) { await new Promise(s => setTimeout(s, 900 * (a + 1))); continue; } throw e; }
     if (r.ok) { j = await r.json(); break; }
     if (r.status === 429) {
       let body = ''; try { body = await r.text(); } catch { body = ''; }

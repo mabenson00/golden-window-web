@@ -1,0 +1,4 @@
+name = "gw-archive-proxy"
+main = "archive-proxy.js"
+compatibility_date = "2024-11-01"
+workers_dev = true
