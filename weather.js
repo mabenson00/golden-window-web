@@ -89,8 +89,31 @@ function daysFromArchive(j) {
   });
   return days;
 }
+const HIST_CACHE_VERSION = 1;
+const hasIDB = typeof indexedDB !== 'undefined';
+function openHistDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('gw-hist', 1);
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('days')) r.result.createObjectStore('days'); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function histCacheGet(key) {
+  if (!hasIDB) return null;
+  try { const db = await openHistDB(); return await new Promise((res, rej) => { const q = db.transaction('days', 'readonly').objectStore('days').get(key); q.onsuccess = () => res(q.result || null); q.onerror = () => rej(q.error); }); }
+  catch { return null; }
+}
+async function histCacheSet(key, val) {
+  if (!hasIDB) return;
+  try { const db = await openHistDB(); await new Promise((res, rej) => { const q = db.transaction('days', 'readwrite').objectStore('days').put(val, key); q.onsuccess = () => res(); q.onerror = () => rej(q.error); }); }
+  catch { return; }
+}
 export async function fetchHistoricalYears(lat, lon, years) {
   const y0 = Math.min(...years), y1 = Math.max(...years);
+  const cacheKey = `${HIST_CACHE_VERSION}:${lat},${lon}:${y0}-${y1}`;
+  const cached = await histCacheGet(cacheKey);
+  if (cached && cached.length) return cached;
   const hourly = 'temperature_2m,apparent_temperature,dew_point_2m,cloud_cover,precipitation,weather_code,wind_speed_10m,is_day';
   const p = new URLSearchParams({ latitude: lat, longitude: lon, hourly, daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code', timezone: 'auto', temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'mm', start_date: `${y0}-01-01`, end_date: `${y1}-12-31` });
   const url = `https://archive-api.open-meteo.com/v1/archive?${p}`;
@@ -103,6 +126,7 @@ export async function fetchHistoricalYears(lat, lon, years) {
   }
   const days = daysFromArchive(j);
   if (!days.length) throw new Error('archive unavailable');
+  histCacheSet(cacheKey, days);
   return days;
 }
 
