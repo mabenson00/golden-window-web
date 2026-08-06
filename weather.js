@@ -121,6 +121,10 @@ export async function fetchHistoricalYears(lat, lon, years) {
   for (let a = 0; a < 4; a++) {
     const r = await fetch(url);
     if (r.ok) { j = await r.json(); break; }
+    if (r.status === 429) {
+      let body = ''; try { body = await r.text(); } catch { body = ''; }
+      if (/limit exceeded|daily/i.test(body)) { const e = new Error('archive daily limit'); e.code = 'daily-limit'; throw e; }
+    }
     if ((r.status === 429 || r.status >= 500) && a < 3) { await new Promise(s => setTimeout(s, 900 * (a + 1))); continue; }
     throw new Error(`archive ${r.status}`);
   }

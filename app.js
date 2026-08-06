@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=34';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=34';
+import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=35';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=35';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -769,7 +769,12 @@ function viewPlan(root) {
   if (!plan.loc) { wrap.append(planEntry(), footer()); root.append(wrap); return; }
   wrap.append(planHeader());
   if (plan.loading) { wrap.append(planLoading()); root.append(wrap); return; }
-  if (plan.error) { wrap.append(el('div', { class: 'state-center err', html: `<h2>Couldn't load the history</h2><p>The weather archive didn't respond. Try again.</p>` }), el('div', { style: 'text-align:center' }, [el('button', { class: 'btn', onclick: () => loadPlan(plan.loc) }, ['Try again'])])); root.append(wrap); return; }
+  if (plan.error) {
+    const limited = plan.error && plan.error.code === 'daily-limit';
+    if (limited) wrap.append(el('div', { class: 'state-center err', html: `<h2>Today's weather-data limit reached</h2><p>We've used up today's free Open-Meteo history allowance. Places you've already looked up still work; new ones will load again tomorrow.</p>` }));
+    else wrap.append(el('div', { class: 'state-center err', html: `<h2>Couldn't load the history</h2><p>The weather archive didn't respond. Try again.</p>` }), el('div', { style: 'text-align:center' }, [el('button', { class: 'btn', onclick: () => loadPlan(plan.loc) }, ['Try again'])]));
+    root.append(wrap); return;
+  }
   if (!plan.scored) { wrap.append(planEntry()); root.append(wrap); return; }
   wrap.append(planResults(), footer());
   root.append(wrap);
