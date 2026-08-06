@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=23';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=23';
+import { fetchForecast, fetchHistoricalYears, geocode, roundCoord, conditionText } from './weather.js?v=24';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=24';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };

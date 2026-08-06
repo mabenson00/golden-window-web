@@ -8,7 +8,7 @@ export const CONFIG = {
   cloudPenaltyExponent: 1.6,
   dewPointComfortableF: 55.0, dewPointOppressiveF: 72.0,
   mugginessScaleAtMinSensitivity: 0.35, mugginessScaleAtMaxSensitivity: 1.15,
-  mugginessGateFeelsF: 74.0,
+  mugginessGateFeelsF: 70.0,
   windComfortableMph: 4.0, windStrongAtMinSensitivity: 35.0, windStrongAtMaxSensitivity: 14.0,
   precipProbFloor: 0.10, precipIntensityRefMMh: 2.5, precipProbabilityBaseImpact: 0.5,
   aqiNoPenaltyBelow: 50, aqiFullPenaltyAt: 150,
