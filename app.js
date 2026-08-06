@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=38';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=38';
+import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=40';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=40';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -18,7 +18,7 @@ let units = store.get('gw.units', 'F');
 let cache = store.get('gw.cache', null);
 let onboarded = store.get('gw.onboarded', false) || store.get('gw.profile', null) !== null;
 let ob = null;
-const PLAN_YEARS = [2022, 2023, 2024];
+const PLAN_YEARS = [2019, 2020, 2021, 2022, 2023, 2024];
 let plan = { loc: store.get('gw.planloc', null), month: store.get('gw.planmonth', new Date().getUTCMonth() + 1), scored: null, locKey: null, loading: false, error: null };
 
 let forecast = null;
@@ -239,11 +239,13 @@ function ridgeSVG(pts, opt) {
   let labels = '';
   if (opt.allLabels) labels += P.map((p, i) => `<text x="${p.x.toFixed(1)}" y="${(p.y - 14).toFixed(1)}" text-anchor="middle" class="rl-v${emph(i) ? ' em' : ''}">${scoreText(pts[i].score)}</text>`).join('');
   const xl = pts.map((p, i) => `<text x="${X(i).toFixed(1)}" y="${(H - padB + 22).toFixed(1)}" text-anchor="middle" class="rl-x${emph(i) ? ' em' : ''}">${p.label}</text>`).join('');
+  let hits = '';
+  if (opt.clickable) hits = pts.map((p, i) => { const x0 = i === 0 ? 0 : (P[i - 1].x + P[i].x) / 2; const x1 = i === n - 1 ? W : (P[i].x + P[i + 1].x) / 2; return `<rect class="ridge-hit" data-i="${i}" x="${x0.toFixed(1)}" y="0" width="${(x1 - x0).toFixed(1)}" height="${H}" fill="transparent" style="cursor:pointer"/>`; }).join('');
   const uid = opt.id || 'r';
   return `<svg viewBox="0 0 ${W} ${H}" class="ridge-svg" role="img" aria-label="${opt.aria || 'scores'}"><defs>` +
     `<linearGradient id="strk-${uid}" gradientUnits="userSpaceOnUse" x1="${padL}" y1="0" x2="${W - padR}" y2="0">${stops}</linearGradient>` +
     `<linearGradient id="fill-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${accent}" stop-opacity=".14"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></linearGradient>` +
-    `</defs>${grid}<path d="${area}" fill="url(#fill-${uid})"/>${guides}<path d="${line}" fill="none" stroke="url(#strk-${uid})" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>${dots}${labels}${xl}</svg>`;
+    `</defs>${grid}<path d="${area}" fill="url(#fill-${uid})"/>${guides}<path d="${line}" fill="none" stroke="url(#strk-${uid})" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>${dots}${labels}${xl}${hits}</svg>`;
 }
 
 function drawTimeline(ev, opts = {}) {
@@ -618,10 +620,12 @@ function planMonth(scored, month) {
   const distMonth = {}; for (const k in dist) distMonth[k] = Math.round(dist[k] / years);
   const byDom = {}; for (const r of rows) (byDom[r.dom] = byDom[r.dom] || []).push(r.score);
   const perDom = []; for (let d = 1; d <= dim; d++) perDom.push(byDom[d] && byDom[d].length ? mean(byDom[d]) : null);
+  const domSorted = perDom.filter(v => v != null).sort((a, b) => a - b);
+  const pctl = q => domSorted.length ? domSorted[Math.min(domSorted.length - 1, Math.floor(q * domSorted.length))] : 0;
   return {
     month, typical: mean(scores), band: band(mean(scores)), dist: distMonth, perDom, dim, years,
     goodPct: Math.round(100 * scores.filter(s => s >= 7).length / scores.length),
-    lo: scores[Math.floor(scores.length * 0.1)], hi: scores[Math.floor(scores.length * 0.9)],
+    lo: pctl(0.1), hi: pctl(0.9),
     character: planCharacter(rows), expect: planExpect(rows, years), heads: planHeads(rows, years), sweet: bestWindow(perDom),
   };
 }
@@ -672,7 +676,7 @@ function planYearLead() {
   const yr = planYear(plan.scored), vals = yr.filter(m => m.score != null).map(m => m.score);
   const lo = Math.min(...vals) - 0.4, hi = Math.max(...vals) + 0.2, selIdx = plan.month - 1;
   const pts = yr.map(m => ({ label: MONTHS_SHORT[m.month - 1], score: m.score == null ? lo : m.score }));
-  const svg = ridgeSVG(pts, { W: 1100, H: 250, lo, hi, allLabels: true, marks: [{ i: selIdx }], id: 'year', aria: 'monthly scores across the year' });
+  const svg = ridgeSVG(pts, { W: 1100, H: 250, lo, hi, allLabels: true, marks: [{ i: selIdx }], id: 'year', aria: 'monthly scores across the year', clickable: true });
   const ranked = yr.filter(m => m.score != null).sort((x, y) => y.score - x.score);
   const rank = ranked.findIndex(m => m.month === plan.month) + 1;
   const months = MONTHS_SHORT.map((m, i) => `<span class="pmo${i === selIdx ? ' on' : ''}" data-m="${i + 1}">${m}</span>`).join('');
@@ -682,17 +686,13 @@ function planYearLead() {
      <div class="ridge-host">${svg}</div>
      <p class="year-note serif">${MONTHS[plan.month - 1]} ranks <b>#${rank} of 12</b> here${rank <= 3 ? ' — one of your best bets' : ''}. Tap a month to switch.</p>` });
   node.querySelectorAll('.pmo[data-m]').forEach(b => b.addEventListener('click', () => setPlanMonth(+b.dataset.m)));
+  node.querySelectorAll('.ridge-hit[data-i]').forEach(b => b.addEventListener('click', () => setPlanMonth(+b.getAttribute('data-i') + 1)));
   return node;
 }
 
-function planHeader() {
-  return el('div', { class: 'plan-topline' }, [
-    el('div', { class: 'crumb', html: `<a href="#/plan" onclick="return false" id="plan-change">← Change place</a> · ${plan.loc.name}` }),
-  ]);
-}
 const PLAN_PIN = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
-function planEntry() {
-  const err = el('div', { class: 'err-inline', style: 'text-align:center' });
+function planPlaceSearch(placeholder) {
+  const err = el('div', { class: 'err-inline' });
   const results = el('div', { class: 'plan-results' });
   let timer, reqId = 0;
   const doSearch = async (q) => {
@@ -707,14 +707,25 @@ function planEntry() {
       list.forEach(loc => results.append(el('button', { class: 'plan-res', onclick: () => loadPlan(loc) }, [el('span', { class: 'pin', html: PLAN_PIN }), el('span', {}, [loc.name])])));
     } catch { if (id === reqId) { results.innerHTML = ''; err.textContent = "Couldn't search just now — try again."; } }
   };
-  const inp = el('input', { class: 'addr-in', placeholder: 'Search for a city…', autocomplete: 'off', spellcheck: 'false', onkeydown: e => { if (e.key === 'Enter') { clearTimeout(timer); doSearch(e.target.value); } }, oninput: e => { clearTimeout(timer); const q = e.target.value; timer = setTimeout(() => doSearch(q), 280); } });
+  const inp = el('input', { class: 'addr-in', placeholder, autocomplete: 'off', spellcheck: 'false', onkeydown: e => { if (e.key === 'Enter') { clearTimeout(timer); doSearch(e.target.value); } }, oninput: e => { clearTimeout(timer); const q = e.target.value; timer = setTimeout(() => doSearch(q), 280); } });
   const btn = el('button', { class: 'btn sm plan-go', onclick: () => { clearTimeout(timer); doSearch(inp.value); } }, ['Search']);
+  const bar = el('div', { class: 'plan-searchbar' }, [el('span', { class: 'ps-ic', html: PLAN_ICON }), inp, btn]);
+  return { bar, err, results };
+}
+function planHeader() {
+  const { bar, err, results } = planPlaceSearch('Search another place…');
+  return el('div', { class: 'plan-topline plan-topline-search' }, [
+    el('div', { class: 'plan-place' }, [el('span', { class: 'pp-k' }, ['Planning for']), el('span', { class: 'pp-name' }, [plan.loc.name])]),
+    el('div', { class: 'plan-hsearch' }, [bar, results, err]),
+  ]);
+}
+function planEntry() {
+  const { bar, err, results } = planPlaceSearch('Search for a city…');
   return el('div', { class: 'plan-entry' }, [
     el('div', { class: 'plan-glyph' }, ['🧭']),
     el('h2', {}, ['Plan around your weather']),
     el('p', { class: 'plan-tag' }, ['See how good a place is likely to feel — for you — in any month, from years of history.']),
-    el('div', { class: 'plan-searchbar' }, [el('span', { class: 'ps-ic', html: PLAN_ICON }), inp, btn]),
-    err, results,
+    bar, err, results,
     el('p', { class: 'plan-hint2' }, [`Search a place and pick it from the list — you'll choose the month next. Scored over ${PLAN_YEARS.length} years of history.`]),
   ]);
 }
@@ -869,14 +880,15 @@ function topbar() {
     nav.append(el('a', { href: h, class: active ? 'on' : '' }, [t]));
   });
   bar.append(nav, el('span', { class: 'grow' }));
-  const loc = location || DEFAULT_LOC;
-  const fresh = stale ? `${Math.max(1, Math.round((Date.now() - fetchedReal) / 3600e3))}h ago` : (forecast ? `Updated ${fmtClock(forecast.current ? forecast.current.time : forecast.updatedAt)}` : '');
-  bar.append(el('button', { class: 'loc-chip', onclick: () => { const s = $('.search input'); if (s) s.focus(); }, html: `<svg class="icon sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span><span class="lc-name">${loc.name}</span><br><span class="lc-time" style="color:${stale ? 'var(--stale)' : ''}">${fresh}</span></span>` }));
-  const search = el('div', { class: 'search' }, [
-    el('span', { html: '<svg class="icon sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>' }),
-    el('input', { placeholder: 'City or ZIP', 'aria-label': 'Search location', onkeydown: async e => { if (e.key === 'Enter' && e.target.value.trim()) await doSearch(e.target.value.trim()); } }),
-  ]);
-  bar.append(search);
+  if (!path.startsWith('#/plan')) {
+    const loc = location || DEFAULT_LOC;
+    const fresh = stale ? `${Math.max(1, Math.round((Date.now() - fetchedReal) / 3600e3))}h ago` : (forecast ? `Updated ${fmtClock(forecast.current ? forecast.current.time : forecast.updatedAt)}` : '');
+    bar.append(el('button', { class: 'loc-chip', onclick: () => { const s = $('.search input'); if (s) s.focus(); }, html: `<svg class="icon sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span><span class="lc-name">${loc.name}</span><br><span class="lc-time" style="color:${stale ? 'var(--stale)' : ''}">${fresh}</span></span>` }));
+    bar.append(el('div', { class: 'search' }, [
+      el('span', { html: '<svg class="icon sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>' }),
+      el('input', { placeholder: 'City or ZIP', 'aria-label': 'Search location', onkeydown: async e => { if (e.key === 'Enter' && e.target.value.trim()) await doSearch(e.target.value.trim()); } }),
+    ]));
+  }
   return bar;
 }
 
