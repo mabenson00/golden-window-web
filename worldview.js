@@ -1,8 +1,8 @@
-import { climateComfort, band } from './scoring.js?v=43';
+import { climateComfort, band } from './scoring.js?v=44';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const CITIES = [["New York", 40.7, -74.0], ["Los Angeles", 34.0, -118.2], ["Chicago", 41.9, -87.6], ["Mexico City", 19.4, -99.1], ["Vancouver", 49.3, -123.1], ["Miami", 25.8, -80.2], ["Denver", 39.7, -105.0], ["Havana", 23.1, -82.4], ["Phoenix", 33.4, -112.1], ["Toronto", 43.7, -79.4], ["San Francisco", 37.8, -122.4], ["Sao Paulo", -23.5, -46.6], ["Rio de Janeiro", -22.9, -43.2], ["Buenos Aires", -34.6, -58.4], ["Lima", -12.0, -77.0], ["Bogota", 4.7, -74.1], ["Santiago", -33.4, -70.6], ["London", 51.5, -0.1], ["Paris", 48.9, 2.4], ["Berlin", 52.5, 13.4], ["Madrid", 40.4, -3.7], ["Rome", 41.9, 12.5], ["Moscow", 55.8, 37.6], ["Istanbul", 41.0, 28.9], ["Barcelona", 41.4, 2.2], ["Lisbon", 38.7, -9.1], ["Athens", 38.0, 23.7], ["Stockholm", 59.3, 18.1], ["Reykjavik", 64.1, -21.9], ["Cairo", 30.0, 31.2], ["Lagos", 6.5, 3.4], ["Johannesburg", -26.2, 28.0], ["Nairobi", -1.3, 36.8], ["Casablanca", 33.6, -7.6], ["Cape Town", -33.9, 18.4], ["Marrakesh", 31.6, -8.0], ["Dubai", 25.2, 55.3], ["Riyadh", 24.7, 46.7], ["Tehran", 35.7, 51.4], ["Tel Aviv", 32.1, 34.8], ["Tokyo", 35.7, 139.7], ["Beijing", 39.9, 116.4], ["Shanghai", 31.2, 121.5], ["Delhi", 28.6, 77.2], ["Mumbai", 19.1, 72.9], ["Bangkok", 13.8, 100.5], ["Singapore", 1.35, 103.8], ["Hong Kong", 22.3, 114.2], ["Seoul", 37.6, 127.0], ["Jakarta", -6.2, 106.8], ["Kuala Lumpur", 3.1, 101.7], ["Bengaluru", 13.0, 77.6], ["Kathmandu", 27.7, 85.3], ["Sydney", -33.9, 151.2], ["Melbourne", -37.8, 145.0], ["Perth", -31.95, 115.9], ["Auckland", -36.8, 174.8], ["Honolulu", 21.3, -157.8]];
-const TW = 1024, TH = 512;
+const TW = 1024, TH = 512, TINT_K = 0.6;
 
 const CSS = `
 .gw-explore{position:fixed;inset:0;z-index:200;font-family:var(--sans,"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif);color:#EAF0FA;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
@@ -89,7 +89,7 @@ export function mountWorldView(host, opts = {}) {
   let META, T, RH, CL, PR, scoresByMonth = [], cityScore = [];
   let gl, prog, U = {}, month = opts.initialMonth ?? new Date().getMonth(), tex = [], yaw = 0.35, pitch = -0.3, dragging = false, lastX, lastY, focusRot = null, vYaw = 0, vPitch = 0;
   let W, H, cx, cy, R, DPR, R_, curProj = [];
-  let landMask, texCanvas = [];
+  let landMask, texCanvas = [], earthImg = null, earthTex = null;
   let rafId = 0, playing = false, playT = 0, disposed = false;
 
   function cellIndex(lat, lon) { const r = Math.round((lat - META.latMin) / META.step), c = Math.round((lon - META.lonMin) / META.step); if (r < 0 || r >= META.rows || c < 0 || c >= META.cols) return -1; return r * META.cols + c; }
@@ -154,20 +154,22 @@ export function mountWorldView(host, opts = {}) {
     octx.setTransform(DPR, 0, 0, DPR, 0, 0); sctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     cx = W / 2; cy = H / 2; R = Math.min(W, H) * 0.40; drawStars(); if (gl) gl.viewport(0, 0, glcv.width, glcv.height);
   }
-  function drawStars() { sctx.clearRect(0, 0, W, H); for (let i = 0; i < 260; i++) { const x = (Math.sin(i * 127.1) * 0.5 + 0.5) * W, y = (Math.sin(i * 311.7 + 2) * 0.5 + 0.5) * H, r = (Math.sin(i * 74.7) * 0.5 + 0.5) * 1.3 + 0.2; sctx.globalAlpha = 0.3 + 0.6 * (Math.sin(i * 13.3) * 0.5 + 0.5); sctx.fillStyle = '#cfe0ff'; sctx.beginPath(); sctx.arc(x, y, r, 0, 7); sctx.fill(); } sctx.globalAlpha = 1; }
+  function drawStars() { sctx.clearRect(0, 0, W, H); }
 
   const VS = `attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}`;
-  const FS = `precision highp float;uniform vec2 uC;uniform float uR;uniform mat3 uInv;uniform sampler2D uTex;uniform vec3 uL;
+  const FS = `precision highp float;uniform vec2 uC;uniform float uR;uniform mat3 uInv;uniform sampler2D uEarth;uniform sampler2D uTint;uniform float uK;uniform vec3 uL;
 #define PI 3.14159265
-void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;}float z=sqrt(1.0-d2);vec3 pos=vec3(p.x,p.y,z);vec3 g=uInv*pos;float lon=atan(g.x,g.z);float lat=asin(clamp(g.y,-1.0,1.0));vec2 uv=vec2(lon/(2.0*PI)+0.5,0.5-lat/PI);vec4 tx=texture2D(uTex,uv);vec3 ocean=vec3(0.05,0.09,0.17);vec3 base=mix(ocean,tx.rgb,tx.a);float light=0.45+0.62*clamp(dot(pos,uL),0.0,1.0);vec3 col=base*light;float rim=pow(1.0-z,2.2);col+=vec3(0.11,0.17,0.30)*rim;gl_FragColor=vec4(col,1.0);}`;
+void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;}float z=sqrt(1.0-d2);vec3 pos=vec3(p.x,p.y,z);vec3 g=uInv*pos;float lon=atan(g.x,g.z);float lat=asin(clamp(g.y,-1.0,1.0));vec2 uv=vec2(lon/(2.0*PI)+0.5,0.5-lat/PI);vec3 earth=texture2D(uEarth,uv).rgb;vec4 tn=texture2D(uTint,uv);vec3 base=mix(earth,tn.rgb,tn.a*uK);float light=0.5+0.58*clamp(dot(pos,uL),0.0,1.0);vec3 col=base*light;float rim=pow(1.0-z,2.2);col+=vec3(0.12,0.18,0.32)*rim;gl_FragColor=vec4(col,1.0);}`;
   function initGL() {
     gl = glcv.getContext('webgl', { antialias: true, premultipliedAlpha: false });
     const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(sh); return sh; };
     prog = gl.createProgram(); gl.attachShader(prog, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, mk(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     const a = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
-    for (const n of ['uC', 'uR', 'uInv', 'uTex', 'uL']) U[n] = gl.getUniformLocation(prog, n);
-    for (let m = 0; m < 12; m++) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texCanvas[m]); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); tex[m] = t; }
+    for (const n of ['uC', 'uR', 'uInv', 'uEarth', 'uTint', 'uK', 'uL']) U[n] = gl.getUniformLocation(prog, n);
+    const setup = () => { gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); };
+    for (let m = 0; m < 12; m++) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texCanvas[m]); setup(); tex[m] = t; }
+    earthTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, earthTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, earthImg); setup();
   }
   function rotMat(yaw, pitch) {
     const cy1 = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
@@ -183,8 +185,9 @@ void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;
     else if (!dragging && (Math.abs(vYaw) > 0.00025 || Math.abs(vPitch) > 0.00025)) { yaw += vYaw; pitch = Math.max(-1.3, Math.min(1.3, pitch + vPitch)); vYaw *= 0.96; vPitch *= 0.96; }
     R_ = R; const Rm = rotMat(yaw, pitch), inv = transpose(Rm);
     gl.useProgram(prog); gl.uniform2f(U.uC, cx * DPR, glcv.height - cy * DPR); gl.uniform1f(U.uR, R * DPR); gl.uniformMatrix3fv(U.uInv, false, new Float32Array(inv));
-    gl.uniform3f(U.uL, 0.35, 0.35, 0.87);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex[month]); gl.uniform1i(U.uTex, 0);
+    gl.uniform3f(U.uL, 0.35, 0.35, 0.87); gl.uniform1f(U.uK, TINT_K);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex[month]); gl.uniform1i(U.uTint, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, earthTex); gl.uniform1i(U.uEarth, 1);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES, 0, 3);
     octx.clearRect(0, 0, W, H); curProj = [];
     for (let i = 0; i < CITIES.length; i++) { const c = CITIES[i], p = project(c[2], c[1], Rm); if (p.z <= 0.03) continue; const s = cityScore[i][month], col = colOf(s); octx.save(); octx.shadowColor = rgbCss(col); octx.shadowBlur = 8; octx.fillStyle = '#fff'; octx.beginPath(); octx.arc(p.x, p.y, 2.6, 0, 7); octx.fill(); octx.restore(); curProj.push({ i, x: p.x, y: p.y, s, name: c[0] }); }
@@ -219,12 +222,13 @@ void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;
   const loadImg = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
   (async () => {
     resize();
-    const [nrm, mask] = await Promise.all([
-      fetch('/world-normals.json?v=43').then(r => r.json()),
-      loadImg('/world-mask.png?v=43'),
+    const [nrm, mask, earth] = await Promise.all([
+      fetch('/world-normals.json?v=44').then(r => r.json()),
+      loadImg('/world-mask.png?v=44'),
+      loadImg('/world-earth.jpg?v=44'),
     ]);
     if (disposed) return;
-    META = nrm.meta; T = nrm.t; RH = nrm.rh; CL = nrm.cloud; PR = nrm.precip;
+    META = nrm.meta; T = nrm.t; RH = nrm.rh; CL = nrm.cloud; PR = nrm.precip; earthImg = earth;
     buildScores(); buildLandMask(mask); buildTextures(); initGL();
     buildMonths(); buildBest(); q('.gw-loading').style.display = 'none'; render();
   })().catch(e => { if (!disposed) q('.gw-loading').textContent = 'Could not load the globe.'; console.error(e); });
