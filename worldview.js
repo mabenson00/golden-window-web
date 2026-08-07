@@ -1,8 +1,8 @@
-import { climateComfort, band } from './scoring.js?v=44';
+import { climateComfort, band, dewPointF } from './scoring.js?v=44';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const CITIES = [["New York", 40.7, -74.0], ["Los Angeles", 34.0, -118.2], ["Chicago", 41.9, -87.6], ["Mexico City", 19.4, -99.1], ["Vancouver", 49.3, -123.1], ["Miami", 25.8, -80.2], ["Denver", 39.7, -105.0], ["Havana", 23.1, -82.4], ["Phoenix", 33.4, -112.1], ["Toronto", 43.7, -79.4], ["San Francisco", 37.8, -122.4], ["Sao Paulo", -23.5, -46.6], ["Rio de Janeiro", -22.9, -43.2], ["Buenos Aires", -34.6, -58.4], ["Lima", -12.0, -77.0], ["Bogota", 4.7, -74.1], ["Santiago", -33.4, -70.6], ["London", 51.5, -0.1], ["Paris", 48.9, 2.4], ["Berlin", 52.5, 13.4], ["Madrid", 40.4, -3.7], ["Rome", 41.9, 12.5], ["Moscow", 55.8, 37.6], ["Istanbul", 41.0, 28.9], ["Barcelona", 41.4, 2.2], ["Lisbon", 38.7, -9.1], ["Athens", 38.0, 23.7], ["Stockholm", 59.3, 18.1], ["Reykjavik", 64.1, -21.9], ["Cairo", 30.0, 31.2], ["Lagos", 6.5, 3.4], ["Johannesburg", -26.2, 28.0], ["Nairobi", -1.3, 36.8], ["Casablanca", 33.6, -7.6], ["Cape Town", -33.9, 18.4], ["Marrakesh", 31.6, -8.0], ["Dubai", 25.2, 55.3], ["Riyadh", 24.7, 46.7], ["Tehran", 35.7, 51.4], ["Tel Aviv", 32.1, 34.8], ["Tokyo", 35.7, 139.7], ["Beijing", 39.9, 116.4], ["Shanghai", 31.2, 121.5], ["Delhi", 28.6, 77.2], ["Mumbai", 19.1, 72.9], ["Bangkok", 13.8, 100.5], ["Singapore", 1.35, 103.8], ["Hong Kong", 22.3, 114.2], ["Seoul", 37.6, 127.0], ["Jakarta", -6.2, 106.8], ["Kuala Lumpur", 3.1, 101.7], ["Bengaluru", 13.0, 77.6], ["Kathmandu", 27.7, 85.3], ["Sydney", -33.9, 151.2], ["Melbourne", -37.8, 145.0], ["Perth", -31.95, 115.9], ["Auckland", -36.8, 174.8], ["Honolulu", 21.3, -157.8]];
-const TW = 1024, TH = 512, TINT_K = 0.6;
+const TW = 1024, TH = 512, TINT_K = 0.6, DRAG_K = 0.006, FRICTION = 0.95, TILT_MAX = 1.3;
 
 const CSS = `
 .gw-explore{position:fixed;inset:0;z-index:200;font-family:var(--sans,"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif);color:#EAF0FA;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
@@ -29,6 +29,20 @@ const CSS = `
 .gw-explore .gw-dot{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor}
 .gw-explore .gw-nm{flex:1;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gw-explore .gw-sc{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+.gw-explore .gw-best.hide{display:none}
+.gw-explore .gw-detail{position:fixed;top:112px;right:28px;z-index:206;width:268px;background:rgba(18,26,42,.82);border:1px solid rgba(150,175,215,.16);border-radius:18px;padding:16px;backdrop-filter:blur(14px);display:none}
+.gw-explore .gw-detail.on{display:block}
+.gw-explore .gw-dx{position:absolute;top:11px;right:12px;background:transparent;border:0;color:#9DB0CC;font-size:14px;cursor:pointer;line-height:1;padding:2px}
+.gw-explore .gw-dx:hover{color:#EAF0FA}
+.gw-explore .gw-dcity{font-size:18px;font-weight:700;color:#EAF0FA;letter-spacing:-.01em;padding-right:20px}
+.gw-explore .gw-dmonth{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#9DB0CC;margin-top:3px}
+.gw-explore .gw-dscore{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin:12px 0 4px;letter-spacing:-.02em}
+.gw-explore .gw-dscore span{font-size:12.5px;font-weight:700;color:#9DB0CC;margin-left:5px;letter-spacing:0}
+.gw-explore .gw-drows{margin:10px 0 14px}
+.gw-explore .gw-drow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid rgba(150,175,215,.12);font-size:13.5px;color:#9DB0CC}
+.gw-explore .gw-drow b{color:#EAF0FA;font-weight:700}
+.gw-explore .gw-dplan{width:100%;background:var(--golden);color:#1a1204;border:0;border-radius:11px;padding:11px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer}
+.gw-explore .gw-dplan:hover{filter:brightness(1.06)}
 .gw-explore .gw-months{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:206;display:flex;align-items:center;gap:4px;background:rgba(18,26,42,.72);border:1px solid rgba(150,175,215,.16);border-radius:16px;padding:8px 10px;backdrop-filter:blur(14px);max-width:94vw;overflow-x:auto}
 .gw-explore .gw-months button{border:0;background:transparent;color:#9DB0CC;font-family:inherit;font-size:13px;font-weight:700;padding:7px 10px;border-radius:9px;cursor:pointer}
 .gw-explore .gw-months button:hover{color:#EAF0FA}
@@ -46,6 +60,7 @@ const CSS = `
   .gw-explore .gw-top p{display:none}
   .gw-explore .gw-best{display:none}
   .gw-explore .gw-legend{top:70px}
+  .gw-explore .gw-detail{top:auto;bottom:86px;right:12px;left:12px;width:auto}
 }`;
 
 export function mountWorldView(host, opts = {}) {
@@ -77,6 +92,7 @@ export function mountWorldView(host, opts = {}) {
     <nav class="gw-nav">${navHtml}</nav>
     <div class="gw-legend"><span class="gw-grad"></span>worse → better</div>
     <aside class="gw-best"><h2 class="gw-best-title">Best places · this month</h2><div class="gw-bestlist"></div></aside>
+    <aside class="gw-detail"></aside>
     <div class="gw-months"></div>
     <div class="gw-tip"><div class="t"></div><div class="s"></div></div>
     <div class="gw-loading">Loading climate grid…</div>`;
@@ -87,8 +103,10 @@ export function mountWorldView(host, opts = {}) {
   const tipEl = q('.gw-tip'), tipT = q('.gw-tip .t'), tipS = q('.gw-tip .s');
 
   let META, T, RH, CL, PR, scoresByMonth = [], cityScore = [];
-  let gl, prog, U = {}, month = opts.initialMonth ?? new Date().getMonth(), tex = [], yaw = 0.35, pitch = -0.3, dragging = false, lastX, lastY, focusRot = null, vYaw = 0, vPitch = 0;
-  let W, H, cx, cy, R, DPR, R_, curProj = [];
+  let gl, prog, U = {}, month = opts.initialMonth ?? new Date().getMonth(), tex = [], lon = 0.30, tilt = -0.40, dragging = false, lastX, lastY, vLon = 0, vTilt = 0, selCity = -1;
+  const units = opts.units === 'C' ? 'C' : 'F';
+  const Tv = f => units === 'C' ? Math.round((f - 32) * 5 / 9) : Math.round(f);
+  let W, H, cx, cy, R, DPR, curProj = [];
   let landMask, texCanvas = [], earthImg = null, earthTex = null;
   let rafId = 0, playing = false, playT = 0, disposed = false;
 
@@ -157,73 +175,99 @@ export function mountWorldView(host, opts = {}) {
   function drawStars() { sctx.clearRect(0, 0, W, H); }
 
   const VS = `attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}`;
-  const FS = `precision highp float;uniform vec2 uC;uniform float uR;uniform mat3 uInv;uniform sampler2D uEarth;uniform sampler2D uTint;uniform float uK;uniform vec3 uL;
+  const FS = `precision highp float;uniform vec2 uC;uniform float uR;uniform float uLon;uniform float uTilt;uniform sampler2D uEarth;uniform sampler2D uTint;uniform float uK;uniform vec3 uL;
 #define PI 3.14159265
-void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;}float z=sqrt(1.0-d2);vec3 pos=vec3(p.x,p.y,z);vec3 g=uInv*pos;float lon=atan(g.x,g.z);float lat=asin(clamp(g.y,-1.0,1.0));vec2 uv=vec2(lon/(2.0*PI)+0.5,0.5-lat/PI);vec3 earth=texture2D(uEarth,uv).rgb;vec4 tn=texture2D(uTint,uv);vec3 base=mix(earth,tn.rgb,tn.a*uK);float light=0.5+0.58*clamp(dot(pos,uL),0.0,1.0);vec3 col=base*light;float rim=pow(1.0-z,2.2);col+=vec3(0.12,0.18,0.32)*rim;gl_FragColor=vec4(col,1.0);}`;
+void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;}float z=sqrt(1.0-d2);vec3 pos=vec3(p.x,p.y,z);float ct=cos(uTilt),st=sin(uTilt);vec3 sd=vec3(pos.x,ct*pos.y-st*pos.z,st*pos.y+ct*pos.z);float lat=asin(clamp(sd.y,-1.0,1.0));float lon=atan(sd.x,sd.z)+uLon;vec2 uv=vec2(lon/(2.0*PI)+0.5,0.5-lat/PI);vec3 earth=texture2D(uEarth,uv).rgb;vec4 tn=texture2D(uTint,uv);vec3 base=mix(earth,tn.rgb,tn.a*uK);float light=0.5+0.58*clamp(dot(pos,uL),0.0,1.0);vec3 col=base*light;float rim=pow(1.0-z,2.2);col+=vec3(0.12,0.18,0.32)*rim;gl_FragColor=vec4(col,1.0);}`;
   function initGL() {
     gl = glcv.getContext('webgl', { antialias: true, premultipliedAlpha: false });
     const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(sh); return sh; };
     prog = gl.createProgram(); gl.attachShader(prog, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, mk(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     const a = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
-    for (const n of ['uC', 'uR', 'uInv', 'uEarth', 'uTint', 'uK', 'uL']) U[n] = gl.getUniformLocation(prog, n);
+    for (const n of ['uC', 'uR', 'uLon', 'uTilt', 'uEarth', 'uTint', 'uK', 'uL']) U[n] = gl.getUniformLocation(prog, n);
     const setup = () => { gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); };
     for (let m = 0; m < 12; m++) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texCanvas[m]); setup(); tex[m] = t; }
     earthTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, earthTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, earthImg); setup();
   }
-  function rotMat(yaw, pitch) {
-    const cy1 = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const Ry = [cy1, 0, sy, 0, 1, 0, -sy, 0, cy1], Rx = [1, 0, 0, 0, cp, -sp, 0, sp, cp];
-    const M = [0, 0, 0, 0, 0, 0, 0, 0, 0]; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { let s = 0; for (let k = 0; k < 3; k++) s += Rx[i * 3 + k] * Ry[k * 3 + j]; M[i * 3 + j] = s; } return M;
+  function project(lon0, lat0) {
+    const la = lat0 * Math.PI / 180, lo = lon0 * Math.PI / 180 - lon;
+    const dx = Math.cos(la) * Math.sin(lo), dy = Math.sin(la), dz = Math.cos(la) * Math.cos(lo);
+    const ct = Math.cos(tilt), st = Math.sin(tilt);
+    const y = ct * dy + st * dz, zc = -st * dy + ct * dz;
+    return { x: cx + dx * R, y: cy - y * R, z: zc };
   }
-  function transpose(m) { return [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]]; }
-  function project(lon, lat, M) { const la = lat * Math.PI / 180, lo = lon * Math.PI / 180; const g = [Math.cos(la) * Math.sin(lo), Math.sin(la), Math.cos(la) * Math.cos(lo)]; const v = [M[0] * g[0] + M[1] * g[1] + M[2] * g[2], M[3] * g[0] + M[4] * g[1] + M[5] * g[2], M[6] * g[0] + M[7] * g[1] + M[8] * g[2]]; return { x: cx + v[0] * R_, y: cy - v[1] * R_, z: v[2] }; }
   function render() {
     if (disposed) return;
     rafId = requestAnimationFrame(render);
-    if (focusRot) { let d0 = focusRot[0] - yaw; while (d0 > Math.PI) d0 -= 2 * Math.PI; while (d0 < -Math.PI) d0 += 2 * Math.PI; yaw += d0 * 0.1; pitch += (focusRot[1] - pitch) * 0.1; if (Math.abs(d0) < 0.005) focusRot = null; }
-    else if (!dragging && (Math.abs(vYaw) > 0.00025 || Math.abs(vPitch) > 0.00025)) { yaw += vYaw; pitch = Math.max(-1.3, Math.min(1.3, pitch + vPitch)); vYaw *= 0.96; vPitch *= 0.96; }
-    R_ = R; const Rm = rotMat(yaw, pitch), inv = transpose(Rm);
-    gl.useProgram(prog); gl.uniform2f(U.uC, cx * DPR, glcv.height - cy * DPR); gl.uniform1f(U.uR, R * DPR); gl.uniformMatrix3fv(U.uInv, false, new Float32Array(inv));
+    if (!dragging && (Math.abs(vLon) > 0.00022 || Math.abs(vTilt) > 0.00022)) { lon += vLon; tilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, tilt + vTilt)); vLon *= FRICTION; vTilt *= FRICTION; }
+    gl.useProgram(prog); gl.uniform2f(U.uC, cx * DPR, glcv.height - cy * DPR); gl.uniform1f(U.uR, R * DPR); gl.uniform1f(U.uLon, lon); gl.uniform1f(U.uTilt, tilt);
     gl.uniform3f(U.uL, 0.35, 0.35, 0.87); gl.uniform1f(U.uK, TINT_K);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex[month]); gl.uniform1i(U.uTint, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, earthTex); gl.uniform1i(U.uEarth, 1);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES, 0, 3);
     octx.clearRect(0, 0, W, H); curProj = [];
-    for (let i = 0; i < CITIES.length; i++) { const c = CITIES[i], p = project(c[2], c[1], inv); if (p.z <= 0.03) continue; const s = cityScore[i][month], col = colOf(s); octx.save(); octx.shadowColor = rgbCss(col); octx.shadowBlur = 8; octx.fillStyle = '#fff'; octx.beginPath(); octx.arc(p.x, p.y, 2.6, 0, 7); octx.fill(); octx.restore(); curProj.push({ i, x: p.x, y: p.y, s, name: c[0] }); }
+    for (let i = 0; i < CITIES.length; i++) { const c = CITIES[i], p = project(c[2], c[1]); if (p.z <= 0.03) continue; const s = cityScore[i][month], col = colOf(s); octx.save(); octx.shadowColor = rgbCss(col); octx.shadowBlur = 8; octx.fillStyle = '#fff'; octx.beginPath(); octx.arc(p.x, p.y, 2.6, 0, 7); octx.fill(); octx.restore(); curProj.push({ i, x: p.x, y: p.y, s, name: c[0] }); }
   }
 
-  let lastMoveT = 0, accX = 0, accY = 0;
-  const onDown = e => { dragging = true; lastX = e.clientX; lastY = e.clientY; focusRot = null; vYaw = 0; vPitch = 0; accX = 0; accY = 0; lastMoveT = performance.now(); ov.setPointerCapture(e.pointerId); };
-  const onUp = () => { dragging = false; if (performance.now() - lastMoveT > 90) { vYaw = 0; vPitch = 0; } };
+  let lastMoveT = 0, dragDist = 0;
+  const onDown = e => { dragging = true; lastX = e.clientX; lastY = e.clientY; vLon = 0; vTilt = 0; dragDist = 0; lastMoveT = performance.now(); ov.setPointerCapture(e.pointerId); };
+  const onUp = () => { dragging = false; if (performance.now() - lastMoveT > 90) { vLon = 0; vTilt = 0; } };
   const onMove = e => {
     if (dragging) {
-      const dx = (e.clientX - lastX) * 0.006, dy = (e.clientY - lastY) * 0.006;
-      accX += dx; accY += dy;
-      if (Math.abs(accX) >= Math.abs(accY)) { yaw -= dx; vYaw = -dx; vPitch = 0; }
-      else { pitch = Math.max(-1.3, Math.min(1.3, pitch + dy)); vPitch = dy; vYaw = 0; }
+      const rx = e.clientX - lastX, ry = e.clientY - lastY;
+      dragDist += Math.hypot(rx, ry);
+      const dl = rx * DRAG_K, dt = ry * DRAG_K;
+      lon -= dl; tilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, tilt - dt));
+      vLon = -dl; vTilt = -dt;
       lastX = e.clientX; lastY = e.clientY; lastMoveT = performance.now(); return;
     }
     let best = null, bd = 15; for (const p of curProj) { const d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < bd) { bd = d; best = p; } }
     if (best) { tipEl.classList.add('on'); tipEl.style.left = best.x + 'px'; tipEl.style.top = best.y + 'px'; tipT.textContent = best.name; tipS.textContent = best.s.toFixed(1) + ' · ' + band(best.s); tipS.style.color = rgbCss(colOf(best.s)); ov.style.cursor = 'pointer'; }
-    else { tipEl.classList.remove('on'); ov.style.cursor = dragging ? 'grabbing' : 'grab'; }
+    else { tipEl.classList.remove('on'); ov.style.cursor = 'grab'; }
   };
-  const onClick = e => { let best = null, bd = 18; for (const p of curProj) { const d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < bd) { bd = d; best = p; } } if (best) { const c = CITIES[best.i]; onPick({ name: c[0], lat: c[1], lon: c[2] }); } };
+  const onClick = e => { if (dragDist > 6) return; let best = null, bd = 18; for (const p of curProj) { const d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < bd) { bd = d; best = p; } } if (best) openDetail(best.i); else closeDetail(); };
   ov.addEventListener('pointerdown', onDown); ov.addEventListener('pointerup', onUp); ov.addEventListener('pointermove', onMove); ov.addEventListener('click', onClick);
   window.addEventListener('resize', resize);
 
   function buildMonths() {
     const wrap = q('.gw-months'); wrap.innerHTML = '';
     const play = document.createElement('div'); play.className = 'gw-play' + (playing ? ' on' : ''); play.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; play.onclick = togglePlay; wrap.appendChild(play);
-    MONTHS.forEach((m, i) => { const b = document.createElement('button'); b.textContent = m; b.className = i === month ? 'on' : ''; b.onclick = () => { month = i; buildMonths(); buildBest(); }; wrap.appendChild(b); });
+    MONTHS.forEach((m, i) => { const b = document.createElement('button'); b.textContent = m; b.className = i === month ? 'on' : ''; b.onclick = () => { month = i; monthChanged(); }; wrap.appendChild(b); });
   }
   function buildBest() {
     q('.gw-best-title').textContent = 'Best places · ' + MONTHS[month];
     const order = CITIES.map((c, i) => ({ i, s: cityScore[i][month] })).sort((a, b) => b.s - a.s).slice(0, 8);
     const list = q('.gw-bestlist'); list.innerHTML = '';
-    order.forEach(o => { const row = document.createElement('div'); row.className = 'gw-row'; const col = rgbCss(colOf(o.s)); row.innerHTML = `<span class="gw-dot" style="background:${col};color:${col}"></span><span class="gw-nm">${CITIES[o.i][0]}</span><span class="gw-sc" style="color:${col}">${o.s.toFixed(1)}</span>`; row.onclick = () => { const c = CITIES[o.i]; onPick({ name: c[0], lat: c[1], lon: c[2] }); }; list.appendChild(row); });
+    order.forEach(o => { const row = document.createElement('div'); row.className = 'gw-row'; const col = rgbCss(colOf(o.s)); row.innerHTML = `<span class="gw-dot" style="background:${col};color:${col}"></span><span class="gw-nm">${CITIES[o.i][0]}</span><span class="gw-sc" style="color:${col}">${o.s.toFixed(1)}</span>`; row.onclick = () => openDetail(o.i); list.appendChild(row); });
   }
-  function togglePlay() { playing = !playing; q('.gw-play').classList.toggle('on', playing); if (playing) playT = setInterval(() => { month = (month + 1) % 12; buildMonths(); buildBest(); }, 950); else clearInterval(playT); }
+  function togglePlay() { playing = !playing; q('.gw-play').classList.toggle('on', playing); if (playing) playT = setInterval(() => { month = (month + 1) % 12; monthChanged(); }, 950); else clearInterval(playT); }
+  function monthChanged() { buildMonths(); buildBest(); if (selCity >= 0) openDetail(selCity); }
+
+  function cityNormals(i, m) {
+    const c = CITIES[i], sc = META.scale;
+    const get = (lat, ln) => { const j = cellIndex(lat, ln); if (j < 0) return null; const b = j * 12 + m; if (T[b] <= -900) return null; return { tempC: T[b] / sc.t, rh: RH[b] / sc.rh, cloudPct: CL[b] / sc.cloud, precipMMday: PR[b] / sc.precip }; };
+    let n = get(c[1], c[2]);
+    for (let rad = 1; rad <= 3 && !n; rad++) for (let dr = -rad; dr <= rad && !n; dr++) for (let dc = -rad; dc <= rad && !n; dc++) n = get(c[1] + dr * META.step, c[2] + dc * META.step);
+    return n;
+  }
+  const skyWord = cl => cl < 20 ? 'Mostly clear' : cl < 50 ? 'Partly cloudy' : cl < 80 ? 'Cloudy' : 'Overcast';
+  const humWord = (feelsF, dewF) => feelsF < 70 || dewF < 60 ? 'Comfortable' : dewF < 68 ? 'Slightly humid' : dewF < 74 ? 'Muggy' : 'Oppressive';
+  const rainWord = mm => mm < 1 ? 'Rare' : mm < 3 ? 'Occasional' : mm < 6 ? 'Regular' : 'Frequent';
+  function openDetail(i) {
+    selCity = i;
+    const c = CITIES[i], s = cityScore[i][month], colc = rgbCss(colOf(s)), n = cityNormals(i, month);
+    let rows = '';
+    if (n) {
+      const feelsF = n.tempC * 9 / 5 + 32, dewF = dewPointF(n.tempC, n.rh);
+      rows = `<div class="gw-drow"><span>Feels like</span><b>${Tv(feelsF)}°</b></div><div class="gw-drow"><span>Sky</span><b>${skyWord(n.cloudPct)}</b></div><div class="gw-drow"><span>Humidity</span><b>${humWord(feelsF, dewF)}</b></div><div class="gw-drow"><span>Rain</span><b>${rainWord(n.precipMMday)}</b></div>`;
+    }
+    const d = q('.gw-detail');
+    d.innerHTML = `<button class="gw-dx" aria-label="Close">✕</button><div class="gw-dcity">${c[0]}</div><div class="gw-dmonth">${MONTHS[month]} · typical, for you</div><div class="gw-dscore" style="color:${colc}">${s.toFixed(1)}<span>/ 10 · ${band(s)}</span></div><div class="gw-drows">${rows}</div><button class="gw-dplan">See the full plan →</button>`;
+    d.querySelector('.gw-dx').onclick = closeDetail;
+    d.querySelector('.gw-dplan').onclick = () => onPick({ name: c[0], lat: c[1], lon: c[2] });
+    d.classList.add('on'); q('.gw-best').classList.add('hide');
+  }
+  function closeDetail() { selCity = -1; q('.gw-detail').classList.remove('on'); q('.gw-best').classList.remove('hide'); }
 
   const loadImg = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
   (async () => {

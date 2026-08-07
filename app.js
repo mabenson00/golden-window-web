@@ -907,13 +907,14 @@ function viewExplore(root) {
   const host = el('div', { class: 'explore-host' });
   root.append(host);
   worldViewPending = true;
-  import('./worldview.js?v=47').then(m => {
+  import('./worldview.js?v=48').then(m => {
     worldViewPending = false;
     if (!locationHash().startsWith('#/explore') || worldViewDispose) return;
     worldViewDispose = m.mountWorldView(host, {
       profile,
       colors: comfortColors(),
       nav: NAV_ITEMS,
+      units,
       onPick: (loc) => { navigate('#/plan'); loadPlan(loc); },
     });
   }).catch(() => { worldViewPending = false; host.innerHTML = '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#9DB0CC;background:#05070d">Could not load World View.</div>'; });
