@@ -2,7 +2,7 @@ import { climateComfort, band, dewPointF } from './scoring.js?v=44';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const CITIES = [["New York", 40.7, -74.0], ["Los Angeles", 34.0, -118.2], ["Chicago", 41.9, -87.6], ["Mexico City", 19.4, -99.1], ["Vancouver", 49.3, -123.1], ["Miami", 25.8, -80.2], ["Denver", 39.7, -105.0], ["Havana", 23.1, -82.4], ["Phoenix", 33.4, -112.1], ["Toronto", 43.7, -79.4], ["San Francisco", 37.8, -122.4], ["Sao Paulo", -23.5, -46.6], ["Rio de Janeiro", -22.9, -43.2], ["Buenos Aires", -34.6, -58.4], ["Lima", -12.0, -77.0], ["Bogota", 4.7, -74.1], ["Santiago", -33.4, -70.6], ["London", 51.5, -0.1], ["Paris", 48.9, 2.4], ["Berlin", 52.5, 13.4], ["Madrid", 40.4, -3.7], ["Rome", 41.9, 12.5], ["Moscow", 55.8, 37.6], ["Istanbul", 41.0, 28.9], ["Barcelona", 41.4, 2.2], ["Lisbon", 38.7, -9.1], ["Athens", 38.0, 23.7], ["Stockholm", 59.3, 18.1], ["Reykjavik", 64.1, -21.9], ["Cairo", 30.0, 31.2], ["Lagos", 6.5, 3.4], ["Johannesburg", -26.2, 28.0], ["Nairobi", -1.3, 36.8], ["Casablanca", 33.6, -7.6], ["Cape Town", -33.9, 18.4], ["Marrakesh", 31.6, -8.0], ["Dubai", 25.2, 55.3], ["Riyadh", 24.7, 46.7], ["Tehran", 35.7, 51.4], ["Tel Aviv", 32.1, 34.8], ["Tokyo", 35.7, 139.7], ["Beijing", 39.9, 116.4], ["Shanghai", 31.2, 121.5], ["Delhi", 28.6, 77.2], ["Mumbai", 19.1, 72.9], ["Bangkok", 13.8, 100.5], ["Singapore", 1.35, 103.8], ["Hong Kong", 22.3, 114.2], ["Seoul", 37.6, 127.0], ["Jakarta", -6.2, 106.8], ["Kuala Lumpur", 3.1, 101.7], ["Bengaluru", 13.0, 77.6], ["Kathmandu", 27.7, 85.3], ["Sydney", -33.9, 151.2], ["Melbourne", -37.8, 145.0], ["Perth", -31.95, 115.9], ["Auckland", -36.8, 174.8], ["Honolulu", 21.3, -157.8], ["Seattle", 47.6, -122.3], ["Boston", 42.4, -71.1], ["Washington", 38.9, -77.0], ["Atlanta", 33.7, -84.4], ["Houston", 29.8, -95.4], ["Dallas", 32.8, -96.8], ["Austin", 30.3, -97.7], ["Montreal", 45.5, -73.6], ["Calgary", 51.0, -114.1], ["San Diego", 32.7, -117.2], ["Las Vegas", 36.2, -115.1], ["New Orleans", 30.0, -90.1], ["Minneapolis", 45.0, -93.3], ["Guadalajara", 20.7, -103.3], ["Quito", -0.2, -78.5], ["Caracas", 10.5, -66.9], ["Montevideo", -34.9, -56.2], ["Brasilia", -15.8, -47.9], ["Medellin", 6.2, -75.6], ["Cusco", -13.5, -72.0], ["Amsterdam", 52.4, 4.9], ["Brussels", 50.85, 4.35], ["Vienna", 48.2, 16.4], ["Prague", 50.1, 14.4], ["Munich", 48.1, 11.6], ["Zurich", 47.4, 8.5], ["Copenhagen", 55.7, 12.6], ["Oslo", 59.9, 10.8], ["Helsinki", 60.2, 24.9], ["Dublin", 53.3, -6.3], ["Edinburgh", 55.95, -3.2], ["Warsaw", 52.2, 21.0], ["Budapest", 47.5, 19.0], ["Bucharest", 44.4, 26.1], ["Kyiv", 50.5, 30.5], ["Porto", 41.15, -8.6], ["Naples", 40.85, 14.3], ["Milan", 45.5, 9.2], ["Nice", 43.7, 7.3], ["Krakow", 50.06, 19.9], ["Accra", 5.6, -0.2], ["Addis Ababa", 9.0, 38.7], ["Dakar", 14.7, -17.5], ["Tunis", 36.8, 10.2], ["Algiers", 36.75, 3.06], ["Amman", 31.95, 35.9], ["Beirut", 33.9, 35.5], ["Doha", 25.3, 51.5], ["Abu Dhabi", 24.5, 54.4], ["Muscat", 23.6, 58.4], ["Kuwait City", 29.4, 47.98], ["Luanda", -8.8, 13.2], ["Osaka", 34.7, 135.5], ["Sapporo", 43.06, 141.35], ["Taipei", 25.0, 121.5], ["Manila", 14.6, 121.0], ["Ho Chi Minh City", 10.8, 106.7], ["Hanoi", 21.0, 105.8], ["Chennai", 13.1, 80.3], ["Kolkata", 22.6, 88.4], ["Colombo", 6.9, 79.9], ["Chengdu", 30.6, 104.1], ["Guangzhou", 23.1, 113.3], ["Almaty", 43.2, 76.9], ["Tashkent", 41.3, 69.3], ["Ulaanbaatar", 47.9, 106.9], ["Chiang Mai", 18.8, 99.0], ["Denpasar", -8.7, 115.2], ["Brisbane", -27.5, 153.0], ["Adelaide", -34.9, 138.6], ["Wellington", -41.3, 174.8]];
-const TW = 1024, TH = 512, TINT_K = 0.6, DRAG_K = 0.006, FRICTION = 0.95, TILT_MAX = 1.3;
+const TW = 1024, TH = 512, TINT_K = 0.6, DRAG_K = 0.006, FRICTION = 0.95, TILT_MAX = 1.3, GLOBE_DAYTIME_C = 5;
 
 const CSS = `
 .gw-explore{position:fixed;inset:0;z-index:200;font-family:var(--sans,"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif);color:#EAF0FA;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
@@ -102,7 +102,7 @@ export function mountWorldView(host, opts = {}) {
   const glcv = q('.gw-gl'), ov = q('.gw-ov'), octx = q('.gw-ov').getContext('2d'), scv = q('.gw-stars'), sctx = scv.getContext('2d');
   const tipEl = q('.gw-tip'), tipT = q('.gw-tip .t'), tipS = q('.gw-tip .s');
 
-  let META, T, RH, CL, PR, scoresByMonth = [], cityScore = [];
+  let META, T, RH, CL, PR, scoresByMonth = [], cityScore = [], cityClimate = null;
   let gl, prog, U = {}, month = opts.initialMonth ?? new Date().getMonth(), tex = [], lon = 0.30, tilt = -0.40, dragging = false, lastX, lastY, vLon = 0, vTilt = 0, selCity = -1;
   const units = opts.units === 'C' ? 'C' : 'F';
   const Tv = f => units === 'C' ? Math.round((f - 32) * 5 / 9) : Math.round(f);
@@ -129,7 +129,7 @@ export function mountWorldView(host, opts = {}) {
       for (let i = 0; i < N; i++) {
         const b = i * 12 + m;
         if (T[b] <= -900) { g[i] = NaN; continue; }
-        const s = climateComfort({ tempC: T[b] / sc.t, rh: RH[b] / sc.rh, cloudPct: CL[b] / sc.cloud, precipMMday: PR[b] / sc.precip }, profile);
+        const s = climateComfort({ tempC: T[b] / sc.t + GLOBE_DAYTIME_C, rh: RH[b] / sc.rh, cloudPct: CL[b] / sc.cloud, precipMMday: PR[b] / sc.precip }, profile);
         g[i] = s == null ? NaN : s;
       }
       for (let pass = 0; pass < 6; pass++) {
@@ -143,7 +143,16 @@ export function mountWorldView(host, opts = {}) {
       }
       scoresByMonth[m] = g;
     }
-    cityScore = CITIES.map(c => MONTHS.map((_, m) => { let s = sampleScore(c[1], c[2], m); if (Number.isNaN(s)) { for (let rad = 1; rad <= 3 && Number.isNaN(s); rad++) for (let dr = -rad; dr <= rad && Number.isNaN(s); dr++) for (let dc = -rad; dc <= rad && Number.isNaN(s); dc++) s = sampleScore(c[1] + dr * META.step, c[2] + dc * META.step, m); } return Number.isNaN(s) ? 5 : s; }));
+    cityScore = CITIES.map(c => {
+      const cc = cityClimate && cityClimate[c[0]];
+      return MONTHS.map((_, m) => {
+        const d = cc && cc[m];
+        if (d && d.daytimeFeelsC != null) { const cs = climateComfort({ tempC: d.daytimeFeelsC, rh: d.rh, cloudPct: d.cloud, precipMMday: d.precipMMday }, profile); if (cs != null) return cs; }
+        let s = sampleScore(c[1], c[2], m);
+        if (Number.isNaN(s)) { for (let rad = 1; rad <= 3 && Number.isNaN(s); rad++) for (let dr = -rad; dr <= rad && Number.isNaN(s); dr++) for (let dc = -rad; dc <= rad && Number.isNaN(s); dc++) s = sampleScore(c[1] + dr * META.step, c[2] + dc * META.step, m); }
+        return Number.isNaN(s) ? 5 : s;
+      });
+    });
   }
   function buildLandMask(img) {
     const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH; const c = cv.getContext('2d');
@@ -245,7 +254,9 @@ void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;
 
   function cityNormals(i, m) {
     const c = CITIES[i], sc = META.scale;
-    const get = (lat, ln) => { const j = cellIndex(lat, ln); if (j < 0) return null; const b = j * 12 + m; if (T[b] <= -900) return null; return { tempC: T[b] / sc.t, rh: RH[b] / sc.rh, cloudPct: CL[b] / sc.cloud, precipMMday: PR[b] / sc.precip }; };
+    const cc = cityClimate && cityClimate[c[0]] && cityClimate[c[0]][m];
+    if (cc && cc.daytimeFeelsC != null) return { tempC: cc.daytimeFeelsC, rh: cc.rh, cloudPct: cc.cloud, precipMMday: cc.precipMMday };
+    const get = (lat, ln) => { const j = cellIndex(lat, ln); if (j < 0) return null; const b = j * 12 + m; if (T[b] <= -900) return null; return { tempC: T[b] / sc.t + GLOBE_DAYTIME_C, rh: RH[b] / sc.rh, cloudPct: CL[b] / sc.cloud, precipMMday: PR[b] / sc.precip }; };
     let n = get(c[1], c[2]);
     for (let rad = 1; rad <= 3 && !n; rad++) for (let dr = -rad; dr <= rad && !n; dr++) for (let dc = -rad; dc <= rad && !n; dc++) n = get(c[1] + dr * META.step, c[2] + dc * META.step);
     return n;
@@ -272,13 +283,14 @@ void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;
   const loadImg = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
   (async () => {
     resize();
-    const [nrm, mask, earth] = await Promise.all([
+    const [nrm, mask, earth, cc] = await Promise.all([
       fetch('/world-normals.json?v=44').then(r => r.json()),
       loadImg('/world-mask.png?v=44'),
       loadImg('/world-earth.jpg?v=44'),
+      fetch('/city-climate.json?v=53').then(r => r.json()).catch(() => null),
     ]);
     if (disposed) return;
-    META = nrm.meta; T = nrm.t; RH = nrm.rh; CL = nrm.cloud; PR = nrm.precip; earthImg = earth;
+    META = nrm.meta; T = nrm.t; RH = nrm.rh; CL = nrm.cloud; PR = nrm.precip; earthImg = earth; cityClimate = cc;
     buildScores(); buildLandMask(mask); buildTextures(); initGL();
     buildMonths(); buildBest(); q('.gw-loading').style.display = 'none'; render();
   })().catch(e => { if (!disposed) q('.gw-loading').textContent = 'Could not load the globe.'; console.error(e); });
