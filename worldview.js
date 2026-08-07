@@ -275,7 +275,7 @@ void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;
     const d = q('.gw-detail');
     d.innerHTML = `<button class="gw-dx" aria-label="Close">✕</button><div class="gw-dcity">${c[0]}</div><div class="gw-dmonth">${MONTHS[month]} · typical, for you</div><div class="gw-dscore" style="color:${colc}">${s.toFixed(1)}<span>/ 10 · ${band(s)}</span></div><div class="gw-drows">${rows}</div><button class="gw-dplan">See the full plan →</button>`;
     d.querySelector('.gw-dx').onclick = closeDetail;
-    d.querySelector('.gw-dplan').onclick = () => onPick({ name: c[0], lat: c[1], lon: c[2] });
+    d.querySelector('.gw-dplan').onclick = () => onPick({ name: c[0], lat: c[1], lon: c[2], month: month + 1 });
     d.classList.add('on'); q('.gw-best').classList.add('hide');
   }
   function closeDetail() { selCity = -1; q('.gw-detail').classList.remove('on'); q('.gw-best').classList.remove('hide'); }
