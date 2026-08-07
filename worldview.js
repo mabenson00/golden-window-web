@@ -197,7 +197,7 @@ void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;
   const onDown = e => { dragging = true; lastX = e.clientX; lastY = e.clientY; focusRot = null; vYaw = 0; vPitch = 0; lastMoveT = performance.now(); ov.setPointerCapture(e.pointerId); };
   const onUp = () => { dragging = false; if (performance.now() - lastMoveT > 90) { vYaw = 0; vPitch = 0; } };
   const onMove = e => {
-    if (dragging) { const dx = (e.clientX - lastX) * 0.006, dy = (e.clientY - lastY) * 0.006; yaw += dx; pitch = Math.max(-1.3, Math.min(1.3, pitch - dy)); vYaw = dx; vPitch = -dy; lastX = e.clientX; lastY = e.clientY; lastMoveT = performance.now(); return; }
+    if (dragging) { const dx = (e.clientX - lastX) * 0.006, dy = (e.clientY - lastY) * 0.006; yaw -= dx; pitch = Math.max(-1.3, Math.min(1.3, pitch + dy)); vYaw = -dx; vPitch = dy; lastX = e.clientX; lastY = e.clientY; lastMoveT = performance.now(); return; }
     let best = null, bd = 15; for (const p of curProj) { const d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < bd) { bd = d; best = p; } }
     if (best) { tipEl.classList.add('on'); tipEl.style.left = best.x + 'px'; tipEl.style.top = best.y + 'px'; tipT.textContent = best.name; tipS.textContent = best.s.toFixed(1) + ' · ' + band(best.s); tipS.style.color = rgbCss(colOf(best.s)); ov.style.cursor = 'pointer'; }
     else { tipEl.classList.remove('on'); ov.style.cursor = dragging ? 'grabbing' : 'grab'; }

@@ -907,7 +907,7 @@ function viewExplore(root) {
   const host = el('div', { class: 'explore-host' });
   root.append(host);
   worldViewPending = true;
-  import('./worldview.js?v=45').then(m => {
+  import('./worldview.js?v=46').then(m => {
     worldViewPending = false;
     if (!locationHash().startsWith('#/explore') || worldViewDispose) return;
     worldViewDispose = m.mountWorldView(host, {
