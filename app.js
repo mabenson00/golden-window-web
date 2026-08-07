@@ -882,7 +882,7 @@ function alertsBanner(alerts) {
   alerts.slice(0, 4).forEach(a => {
     const card = el('div', { class: `alert alert-${alertSevClass(a.severity)}` });
     const desc = escH((a.description || '').replace(/\n{2,}/g, '\n').trim());
-    card.innerHTML = `<span class="al-ic">${ALERT_ICON}</span><div class="al-body"><div class="al-top"><span class="al-event">${escH(a.event)}</span><span class="al-when">${escH(alertTiming(a))}</span></div>${a.area ? `<div class="al-area">${escH(a.area)}</div>` : ''}${desc ? `<button class="al-toggle" type="button">Details</button><div class="al-desc" hidden>${desc}${a.instruction ? '<br><br><b>' + escH(a.instruction) + '</b>' : ''}</div>` : ''}<div class="al-src">${escH(a.sender)}</div></div>`;
+    card.innerHTML = `<span class="al-ic">${ALERT_ICON}</span><div class="al-body"><div class="al-top"><span class="al-event">${escH(a.event)}</span><span class="al-when">${escH(alertTiming(a))}</span></div>${desc ? `<button class="al-toggle" type="button">Details</button><div class="al-desc" hidden>${desc}${a.instruction ? '<br><br><b>' + escH(a.instruction) + '</b>' : ''}</div>` : ''}</div>`;
     const tog = card.querySelector('.al-toggle');
     if (tog) tog.addEventListener('click', () => { const d = card.querySelector('.al-desc'); const open = !d.hidden; d.hidden = open; tog.textContent = open ? 'Details' : 'Hide'; });
     wrap.append(card);
