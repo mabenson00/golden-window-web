@@ -838,7 +838,7 @@ function viewSettings(root) {
 
   const about = el('section', { class: 'card set-card', style: 'grid-column:1/-1' });
   about.append(el('h3', {}, ['About']));
-  about.append(el('div', { class: 'about', html: `Golden Window — a personal weather score and the best time to be outside. Scores and explanations are relative to your local weather; safety warnings are absolute.<div style="margin-top:10px">Weather data by <b>Open-Meteo</b>.</div><div class="ver">Version 1.0 (web) · No account, no tracking</div>` }));
+  about.append(el('div', { class: 'about', html: `Golden Window — a personal weather score and the best time to be outside. Scores and explanations are relative to your local weather; safety warnings are absolute.<div style="margin-top:10px">Weather data by <b>Open-Meteo</b>.</div><div class="ver">Version 1.0 (web) · No account needed</div>` }));
   about.append(el('div', { style: 'margin-top:14px' }, [el('button', { class: 'btn ghost', style: 'color:var(--poor);border-color:color-mix(in srgb,var(--poor) 40%,transparent)', onclick: () => { profile = { ...sensibleDefault }; store.set('gw.profile', profile); route(); } }, ['Reset preferences'])]));
   grid.append(about);
 
@@ -864,7 +864,7 @@ function staleBanner() {
   const hrs = Math.max(1, Math.round((Date.now() - fetchedReal) / 3600e3));
   return el('div', { class: 'banner stale', html: `<svg class="icon sm" viewBox="0 0 24 24" style="stroke:var(--stale)" fill="none"><path d="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5"/></svg> Showing weather from about ${hrs} hour${hrs > 1 ? 's' : ''} ago — couldn't refresh.` });
 }
-function footer() { return el('div', { class: 'foot', html: '<div class="foot-tag">Golden Window finds the best time to be outside today — a personal weather score for how good it is to be out, tuned to how you like it, not a generic forecast.</div>Weather by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Built by <a href="https://github.com/mabenson00" target="_blank" rel="noopener">Michael Benson</a> · no account, no tracking' }); }
+function footer() { return el('div', { class: 'foot', html: '<div class="foot-tag">Golden Window finds the best time to be outside today — a personal weather score for how good it is to be out, tuned to how you like it, not a generic forecast.</div>Weather by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Built by <a href="https://github.com/mabenson00" target="_blank" rel="noopener">Michael Benson</a> · no account needed' }); }
 
 let _weekCache = null, _weekKey = '';
 function evaluateWeekCached() {
@@ -1132,6 +1132,7 @@ function startOnboarding() {
 
 function boot() {
   window.addEventListener('hashchange', route);
+  window.addEventListener('hashchange', () => { if (window.gtag) window.gtag('event', 'page_view', { page_path: location.hash || '#/today', page_location: location.href, page_title: document.title }); });
   if (cache && cache.forecast) { forecast = cache.forecast; fetchedReal = cache.fetchedReal || 0; stale = (Date.now() - fetchedReal) > STALE_MS; }
   route();
   load();
