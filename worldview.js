@@ -193,11 +193,17 @@ void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;
     for (let i = 0; i < CITIES.length; i++) { const c = CITIES[i], p = project(c[2], c[1], inv); if (p.z <= 0.03) continue; const s = cityScore[i][month], col = colOf(s); octx.save(); octx.shadowColor = rgbCss(col); octx.shadowBlur = 8; octx.fillStyle = '#fff'; octx.beginPath(); octx.arc(p.x, p.y, 2.6, 0, 7); octx.fill(); octx.restore(); curProj.push({ i, x: p.x, y: p.y, s, name: c[0] }); }
   }
 
-  let lastMoveT = 0;
-  const onDown = e => { dragging = true; lastX = e.clientX; lastY = e.clientY; focusRot = null; vYaw = 0; vPitch = 0; lastMoveT = performance.now(); ov.setPointerCapture(e.pointerId); };
+  let lastMoveT = 0, accX = 0, accY = 0;
+  const onDown = e => { dragging = true; lastX = e.clientX; lastY = e.clientY; focusRot = null; vYaw = 0; vPitch = 0; accX = 0; accY = 0; lastMoveT = performance.now(); ov.setPointerCapture(e.pointerId); };
   const onUp = () => { dragging = false; if (performance.now() - lastMoveT > 90) { vYaw = 0; vPitch = 0; } };
   const onMove = e => {
-    if (dragging) { const dx = (e.clientX - lastX) * 0.006, dy = (e.clientY - lastY) * 0.006; yaw -= dx; pitch = Math.max(-1.3, Math.min(1.3, pitch + dy)); vYaw = -dx; vPitch = dy; lastX = e.clientX; lastY = e.clientY; lastMoveT = performance.now(); return; }
+    if (dragging) {
+      const dx = (e.clientX - lastX) * 0.006, dy = (e.clientY - lastY) * 0.006;
+      accX += dx; accY += dy;
+      if (Math.abs(accX) >= Math.abs(accY)) { yaw -= dx; vYaw = -dx; vPitch = 0; }
+      else { pitch = Math.max(-1.3, Math.min(1.3, pitch + dy)); vPitch = dy; vYaw = 0; }
+      lastX = e.clientX; lastY = e.clientY; lastMoveT = performance.now(); return;
+    }
     let best = null, bd = 15; for (const p of curProj) { const d = Math.hypot(p.x - e.clientX, p.y - e.clientY); if (d < bd) { bd = d; best = p; } }
     if (best) { tipEl.classList.add('on'); tipEl.style.left = best.x + 'px'; tipEl.style.top = best.y + 'px'; tipT.textContent = best.name; tipS.textContent = best.s.toFixed(1) + ' · ' + band(best.s); tipS.style.color = rgbCss(colOf(best.s)); ov.style.cursor = 'pointer'; }
     else { tipEl.classList.remove('on'); ov.style.cursor = dragging ? 'grabbing' : 'grab'; }
