@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Window — World View (prototype)</title>
+<style>
+  :root{
+    --golden:#D89A1B; --great:#248A4D; --good:#48A86C; --decent:#8C8674; --poor:#D95D38; --bad:#B83A2C;
+    --ink:#EAF0FA; --soft:#9DB0CC; --faint:#5E718F;
+    --panel:rgba(18,26,42,.72); --hair:rgba(150,175,215,.16);
+    --sans:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:#05070d;overflow:hidden;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+  .space{position:fixed;inset:0;background:
+    radial-gradient(120% 90% at 72% 18%, #16223e 0%, rgba(22,34,62,0) 55%),
+    radial-gradient(90% 80% at 20% 90%, #10182b 0%, rgba(16,24,43,0) 60%),
+    #05070d}
+  #stars,#globe{position:fixed;inset:0}
+  #globe{touch-action:none;cursor:grab}
+  #globe:active{cursor:grabbing}
+
+  .top{position:fixed;top:26px;left:30px;z-index:5;max-width:440px;pointer-events:none}
+  .top .ey{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--soft)}
+  .top h1{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:8px;line-height:1.05}
+  .top p{font-size:13.5px;color:var(--soft);margin-top:10px;line-height:1.5}
+
+  .legend{position:fixed;top:30px;right:30px;z-index:5;display:flex;align-items:center;gap:10px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}
+  .legend .grad{width:120px;height:8px;border-radius:5px;background:linear-gradient(90deg,var(--bad),var(--poor),var(--decent),var(--good),var(--great),var(--golden))}
+
+  .best{position:fixed;top:96px;right:30px;z-index:5;width:270px;background:var(--panel);border:1px solid var(--hair);border-radius:18px;padding:16px 16px 10px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  .best h2{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--soft);margin-bottom:12px}
+  .best .row{display:flex;align-items:center;gap:11px;padding:8px 6px;border-radius:10px;cursor:pointer}
+  .best .row:hover{background:rgba(150,175,215,.09)}
+  .best .dot{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor}
+  .best .nm{flex:1;font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .best .sc{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+
+  .months{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--hair);border-radius:16px;padding:8px 10px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  .months button{border:0;background:transparent;color:var(--soft);font-family:var(--sans);font-size:13px;font-weight:700;padding:7px 10px;border-radius:9px;cursor:pointer;letter-spacing:.02em}
+  .months button:hover{color:var(--ink)}
+  .months button.on{background:rgba(255,255,255,.1);color:#fff}
+  .months .play{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;margin-right:4px;color:#fff;cursor:pointer}
+  .months .play.on{background:var(--golden);color:#1a1204}
+
+  .tip{position:fixed;z-index:9;pointer-events:none;transform:translate(-50%,-140%);background:#0c1424;border:1px solid var(--hair);border-radius:11px;padding:8px 12px;opacity:0;transition:opacity .1s;white-space:nowrap;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+  .tip.on{opacity:1}
+  .tip .t{font-size:13.5px;font-weight:700}
+  .tip .s{font-size:12px;font-weight:700;margin-top:2px}
+
+  .focuscard{position:fixed;left:30px;bottom:30px;z-index:6;width:280px;background:var(--panel);border:1px solid var(--hair);border-radius:18px;padding:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);opacity:0;transform:translateY(8px);transition:opacity .18s,transform .18s;pointer-events:none}
+  .focuscard.on{opacity:1;transform:none;pointer-events:auto}
+  .focuscard .fk{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--soft)}
+  .focuscard .fn{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:6px 0 12px}
+  .focuscard .fbig{display:flex;align-items:baseline;gap:8px}
+  .focuscard .fbig .v{font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  .focuscard .fbig .band{font-size:15px;font-weight:700}
+  .focuscard .open{margin-top:14px;display:inline-flex;font-size:12.5px;font-weight:700;color:var(--golden);cursor:pointer}
+  .note{position:fixed;left:30px;bottom:150px;z-index:4;font-size:11.5px;color:var(--faint);max-width:300px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="space"></div>
+<canvas id="stars"></canvas>
+<canvas id="globe"></canvas>
+
+<div class="top">
+  <div class="ey">World View · prototype</div>
+  <h1>Where's it golden — for you</h1>
+  <p>Every place, tinted by how good it'd feel to be outside there this month, tuned to your comfort. Drag to spin · click a place to focus. (Placeholder seasonal scores.)</p>
+</div>
+
+<div class="legend"><span class="grad"></span>worse → better</div>
+<aside class="best"><h2 id="bestTitle">Best places · this month</h2><div id="bestList"></div></aside>
+<div class="months" id="months"></div>
+
+<div class="focuscard" id="focus">
+  <div class="fk">Typical <span id="fMonth"></span></div>
+  <div class="fn" id="fName"></div>
+  <div class="fbig"><span class="v" id="fScore"></span><span class="band" id="fBand"></span></div>
+  <div class="open" id="fOpen">Open the full month-by-month plan →</div>
+</div>
+
+<div class="tip" id="tip"><div class="t" id="tipT"></div><div class="s" id="tipS"></div></div>
+<div class="note">Prototype: cities are real; scores are a placeholder seasonal model, not the real comfort engine. The real version tints the land itself from precomputed climate normals for your profile.</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script>
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const IDEAL_F=74;
+const BANDS=[[9,'#D89A1B','Golden'],[8,'#248A4D','Great'],[7,'#48A86C','Good'],[5,'#8C8674','Decent'],[3,'#D95D38','Poor'],[-1,'#B83A2C','Bad']];
+const colorOf=s=>{for(const b of BANDS)if(s>=b[0])return b[1];return BANDS[5][1]};
+const bandOf=s=>{for(const b of BANDS)if(s>=b[0])return b[2];return 'Bad'};
+
+const CITIES=[
+["New York",40.7,-74.0],["Los Angeles",34.0,-118.2],["Chicago",41.9,-87.6],["Toronto",43.7,-79.4],["Mexico City",19.4,-99.1],["Vancouver",49.3,-123.1],["Miami",25.8,-80.2],["Denver",39.7,-105.0],["Seattle",47.6,-122.3],["Houston",29.8,-95.4],["San Francisco",37.8,-122.4],["Montreal",45.5,-73.6],["Havana",23.1,-82.4],["Phoenix",33.4,-112.1],["Atlanta",33.7,-84.4],["Washington",38.9,-77.0],["Minneapolis",45.0,-93.3],["Winnipeg",49.9,-97.1],["Anchorage",61.2,-149.9],["Honolulu",21.3,-157.8],["Monterrey",25.7,-100.3],["Guatemala City",14.6,-90.5],["Panama City",8.98,-79.5],["San Juan",18.5,-66.1],
+["Sao Paulo",-23.5,-46.6],["Rio de Janeiro",-22.9,-43.2],["Buenos Aires",-34.6,-58.4],["Lima",-12.0,-77.0],["Bogota",4.7,-74.1],["Santiago",-33.4,-70.6],["Caracas",10.5,-66.9],["Quito",-0.2,-78.5],["La Paz",-16.5,-68.1],["Montevideo",-34.9,-56.2],["Brasilia",-15.8,-47.9],["Manaus",-3.1,-60.0],["Salvador",-13.0,-38.5],["Asuncion",-25.3,-57.6],
+["London",51.5,-0.1],["Paris",48.9,2.4],["Berlin",52.5,13.4],["Madrid",40.4,-3.7],["Rome",41.9,12.5],["Moscow",55.8,37.6],["Istanbul",41.0,28.9],["Amsterdam",52.4,4.9],["Barcelona",41.4,2.2],["Lisbon",38.7,-9.1],["Athens",38.0,23.7],["Vienna",48.2,16.4],["Stockholm",59.3,18.1],["Oslo",59.9,10.7],["Copenhagen",55.7,12.6],["Dublin",53.3,-6.3],["Warsaw",52.2,21.0],["Kyiv",50.5,30.5],["Prague",50.1,14.4],["Zurich",47.4,8.5],["Reykjavik",64.1,-21.9],["Helsinki",60.2,24.9],["Bucharest",44.4,26.1],["Belgrade",44.8,20.5],
+["Cairo",30.0,31.2],["Lagos",6.5,3.4],["Johannesburg",-26.2,28.0],["Nairobi",-1.3,36.8],["Casablanca",33.6,-7.6],["Cape Town",-33.9,18.4],["Addis Ababa",9.0,38.7],["Accra",5.6,-0.2],["Dakar",14.7,-17.5],["Algiers",36.8,3.0],["Kinshasa",-4.3,15.3],["Khartoum",15.5,32.5],["Marrakesh",31.6,-8.0],["Tunis",36.8,10.2],["Luanda",-8.8,13.2],["Dar es Salaam",-6.8,39.3],["Windhoek",-22.6,17.1],["Antananarivo",-18.9,47.5],["Mombasa",-4.0,39.7],
+["Dubai",25.2,55.3],["Riyadh",24.7,46.7],["Tehran",35.7,51.4],["Baghdad",33.3,44.4],["Jerusalem",31.8,35.2],["Tel Aviv",32.1,34.8],["Doha",25.3,51.5],["Kuwait City",29.4,48.0],["Tashkent",41.3,69.3],["Almaty",43.2,76.9],["Baku",40.4,49.9],["Kabul",34.5,69.2],
+["Tokyo",35.7,139.7],["Beijing",39.9,116.4],["Shanghai",31.2,121.5],["Delhi",28.6,77.2],["Mumbai",19.1,72.9],["Bangkok",13.8,100.5],["Singapore",1.35,103.8],["Hong Kong",22.3,114.2],["Seoul",37.6,127.0],["Jakarta",-6.2,106.8],["Manila",14.6,121.0],["Kuala Lumpur",3.1,101.7],["Ho Chi Minh City",10.8,106.7],["Hanoi",21.0,105.8],["Taipei",25.0,121.6],["Osaka",34.7,135.5],["Chengdu",30.6,104.1],["Kolkata",22.6,88.4],["Chennai",13.1,80.3],["Bengaluru",13.0,77.6],["Karachi",24.9,67.0],["Lahore",31.5,74.3],["Dhaka",23.8,90.4],["Colombo",6.9,79.9],["Yangon",16.8,96.2],["Kathmandu",27.7,85.3],["Ulaanbaatar",47.9,106.9],["Novosibirsk",55.0,82.9],["Vladivostok",43.1,131.9],
+["Sydney",-33.9,151.2],["Melbourne",-37.8,145.0],["Brisbane",-27.5,153.0],["Perth",-31.95,115.9],["Auckland",-36.8,174.8],["Wellington",-41.3,174.8],["Adelaide",-34.9,138.6],["Suva",-18.1,178.4],["Port Moresby",-9.5,147.2],["Nadi",-17.8,177.4]
+];
+
+function seasonalScore(lat,lon,m){
+  const a=Math.abs(lat);
+  const annual=27-0.55*a;
+  const amp=3+0.34*a;
+  const peak=lat>=0?7:1;
+  const seas=amp*Math.cos((m-peak)/12*2*Math.PI);
+  const tF=(annual+seas)*9/5+32;
+  let g=Math.exp(-Math.pow((tF-IDEAL_F)/15,2));
+  const seed=Math.sin(lat*12.9898+lon*78.233)*43758.5453;
+  const noise=seed-Math.floor(seed);
+  let s=10*g;
+  if(tF>86)s-=(tF-86)*0.16;
+  if(a<18)s-=Math.max(0,(tF-76)/12)*1.4;
+  s*=(0.92+0.12*noise);
+  return Math.max(0.6,Math.min(9.6,s));
+}
+const SCORES=CITIES.map(c=>MONTHS.map((_,i)=>seasonalScore(c[1],c[2],i+1)));
+
+let month=new Date().getMonth();
+const cv=document.getElementById('globe'),ctx=cv.getContext('2d');
+const scv=document.getElementById('stars'),sctx=scv.getContext('2d');
+let W,H,cx,cy,R,DPR,projection,path,graticule,land=null,sphereGrad;
+let rot=[20,-18],dragging=false,lastX,lastY,focusRot=null,proj=[];
+
+function resize(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  W=window.innerWidth;H=window.innerHeight;
+  for(const c of [cv,scv]){c.width=W*DPR;c.height=H*DPR;c.style.width=W+'px';c.style.height=H+'px';}
+  ctx.setTransform(DPR,0,0,DPR,0,0);sctx.setTransform(DPR,0,0,DPR,0,0);
+  cx=W/2;cy=H/2;R=Math.min(W,H)*0.38;
+  projection=d3.geoOrthographic().translate([cx,cy]).scale(R).clipAngle(90).rotate(rot);
+  path=d3.geoPath(projection,ctx);
+  graticule=d3.geoGraticule10();
+  sphereGrad=ctx.createRadialGradient(cx-R*0.35,cy-R*0.4,R*0.1,cx,cy,R);
+  sphereGrad.addColorStop(0,'#1d2b47');sphereGrad.addColorStop(.72,'#111a2d');sphereGrad.addColorStop(1,'#0a0f1c');
+  drawStars();
+}
+function drawStars(){
+  sctx.clearRect(0,0,W,H);
+  for(let i=0;i<260;i++){const x=(Math.sin(i*127.1)*0.5+0.5)*W;const y=(Math.sin(i*311.7+2)*0.5+0.5)*H;const r=(Math.sin(i*74.7)*0.5+0.5)*1.3+0.2;sctx.globalAlpha=0.3+0.6*(Math.sin(i*13.3)*0.5+0.5);sctx.fillStyle='#cfe0ff';sctx.beginPath();sctx.arc(x,y,r,0,7);sctx.fill();}
+  sctx.globalAlpha=1;
+}
+window.addEventListener('resize',resize);
+
+function render(){
+  requestAnimationFrame(render);
+  if(focusRot){
+    let d0=focusRot[0]-rot[0];while(d0>180)d0-=360;while(d0<-180)d0+=360;
+    rot[0]+=d0*0.1;rot[1]+=(focusRot[1]-rot[1])*0.1;
+    if(Math.abs(d0)<0.4&&Math.abs(focusRot[1]-rot[1])<0.4)focusRot=null;
+    projection.rotate(rot);
+  }
+  ctx.clearRect(0,0,W,H);
+  ctx.beginPath();path({type:'Sphere'});ctx.save();ctx.shadowColor='rgba(90,140,220,.35)';ctx.shadowBlur=26;ctx.fillStyle=sphereGrad;ctx.fill();ctx.restore();
+  ctx.beginPath();path(graticule);ctx.strokeStyle='rgba(150,180,230,.10)';ctx.lineWidth=1;ctx.stroke();
+  if(land){ctx.beginPath();path(land);ctx.fillStyle='#243449';ctx.fill();ctx.strokeStyle='rgba(150,185,235,.28)';ctx.lineWidth=0.8;ctx.stroke();}
+  const center=[-rot[0],-rot[1]];proj=[];
+  for(let i=0;i<CITIES.length;i++){
+    const c=CITIES[i];
+    if(d3.geoDistance([c[2],c[1]],center)>1.55)continue;
+    const xy=projection([c[2],c[1]]);if(!xy)continue;
+    const s=SCORES[i][month],col=colorOf(s);
+    ctx.shadowColor=col;ctx.shadowBlur=11+s*1.3;ctx.fillStyle=col;
+    ctx.beginPath();ctx.arc(xy[0],xy[1],Math.max(2.4,3.1+(s-5)*0.5),0,7);ctx.fill();ctx.shadowBlur=0;
+    proj.push({i,x:xy[0],y:xy[1],s,name:c[0]});
+  }
+}
+
+cv.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;focusRot=null;cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointerup',()=>{dragging=false;});
+cv.addEventListener('pointermove',e=>{
+  if(dragging){rot[0]+=(e.clientX-lastX)*0.24;rot[1]-=(e.clientY-lastY)*0.24;rot[1]=Math.max(-88,Math.min(88,rot[1]));lastX=e.clientX;lastY=e.clientY;projection.rotate(rot);return;}
+  let best=null,bd=16;
+  for(const p of proj){const d=Math.hypot(p.x-e.clientX,p.y-e.clientY);if(d<bd){bd=d;best=p;}}
+  const tip=document.getElementById('tip');
+  if(best){tip.classList.add('on');tip.style.left=best.x+'px';tip.style.top=best.y+'px';document.getElementById('tipT').textContent=best.name;const el=document.getElementById('tipS');el.textContent=best.s.toFixed(1)+' · '+bandOf(best.s);el.style.color=colorOf(best.s);cv.style.cursor='pointer';}
+  else{tip.classList.remove('on');cv.style.cursor=dragging?'grabbing':'grab';}
+});
+cv.addEventListener('click',e=>{let best=null,bd=18;for(const p of proj){const d=Math.hypot(p.x-e.clientX,p.y-e.clientY);if(d<bd){bd=d;best=p;}}if(best)focusCity(best.i);});
+
+function focusCity(i){
+  const c=CITIES[i],s=SCORES[i][month];
+  focusRot=[-c[2],-c[1]];
+  const f=document.getElementById('focus');f.classList.add('on');
+  document.getElementById('fMonth').textContent=MONTHS[month];
+  document.getElementById('fName').textContent=c[0];
+  const v=document.getElementById('fScore');v.textContent=s.toFixed(1);v.style.color=colorOf(s);
+  const b=document.getElementById('fBand');b.textContent=bandOf(s);b.style.color=colorOf(s);
+}
+function buildMonths(){
+  const wrap=document.getElementById('months');wrap.innerHTML='';
+  const play=document.createElement('div');play.className='play';play.id='play';play.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';play.onclick=togglePlay;wrap.appendChild(play);
+  MONTHS.forEach((m,i)=>{const b=document.createElement('button');b.textContent=m;b.className=i===month?'on':'';b.onclick=()=>setMonth(i);wrap.appendChild(b);});
+}
+function setMonth(i){month=i;buildMonths();buildBest();const f=document.getElementById('focus');if(f.classList.contains('on')){const nm=document.getElementById('fName').textContent;const idx=CITIES.findIndex(c=>c[0]===nm);if(idx>=0){const c=CITIES[idx],s=SCORES[idx][month];const v=document.getElementById('fScore');v.textContent=s.toFixed(1);v.style.color=colorOf(s);const b=document.getElementById('fBand');b.textContent=bandOf(s);b.style.color=colorOf(s);document.getElementById('fMonth').textContent=MONTHS[month];}}}
+function buildBest(){
+  document.getElementById('bestTitle').textContent='Best places · '+MONTHS[month];
+  const order=CITIES.map((c,i)=>({i,s:SCORES[i][month]})).sort((a,b)=>b.s-a.s).slice(0,8);
+  const list=document.getElementById('bestList');list.innerHTML='';
+  order.forEach(o=>{const row=document.createElement('div');row.className='row';const col=colorOf(o.s);row.innerHTML=`<span class="dot" style="background:${col};color:${col}"></span><span class="nm">${CITIES[o.i][0]}</span><span class="sc" style="color:${col}">${o.s.toFixed(1)}</span>`;row.onclick=()=>focusCity(o.i);list.appendChild(row);});
+}
+let playing=false,playT;
+function togglePlay(){playing=!playing;document.getElementById('play').classList.toggle('on',playing);if(playing){playT=setInterval(()=>setMonth((month+1)%12),950);}else clearInterval(playT);}
+
+async function init(){
+  resize();buildMonths();buildBest();render();
+  try{
+    const world=await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json').then(r=>r.json());
+    land=topojson.feature(world,world.objects.land);
+  }catch(e){}
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Window — World View (WebGL)</title>
+<style>
+  :root{--golden:#D89A1B;--great:#248A4D;--good:#48A86C;--decent:#8C8674;--poor:#D95D38;--bad:#B83A2C;
+    --ink:#EAF0FA;--soft:#9DB0CC;--faint:#5E718F;--panel:rgba(18,26,42,.72);--hair:rgba(150,175,215,.16);
+    --sans:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:#05070d;overflow:hidden;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+  .space{position:fixed;inset:0;background:radial-gradient(120% 90% at 72% 18%,#16223e 0%,rgba(22,34,62,0) 55%),radial-gradient(90% 80% at 20% 90%,#10182b 0%,rgba(16,24,43,0) 60%),#05070d}
+  #stars,#gl,#ov{position:fixed;inset:0}
+  #ov{touch-action:none;cursor:grab}#ov:active{cursor:grabbing}
+  .top{position:fixed;top:26px;left:30px;z-index:5;max-width:440px;pointer-events:none}
+  .top .ey{font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--soft)}
+  .top h1{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:8px;line-height:1.05}
+  .top p{font-size:13.5px;color:var(--soft);margin-top:10px;line-height:1.5}
+  .legend{position:fixed;top:30px;right:30px;z-index:5;display:flex;align-items:center;gap:10px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}
+  .legend .grad{width:120px;height:8px;border-radius:5px;background:linear-gradient(90deg,var(--bad),var(--poor),var(--decent),var(--good),var(--great),var(--golden))}
+  .best{position:fixed;top:96px;right:30px;z-index:5;width:270px;background:var(--panel);border:1px solid var(--hair);border-radius:18px;padding:16px 16px 10px;backdrop-filter:blur(14px)}
+  .best h2{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--soft);margin-bottom:12px}
+  .best .row{display:flex;align-items:center;gap:11px;padding:8px 6px;border-radius:10px;cursor:pointer}
+  .best .row:hover{background:rgba(150,175,215,.09)}
+  .best .dot{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor}
+  .best .nm{flex:1;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .best .sc{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+  .months{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--hair);border-radius:16px;padding:8px 10px;backdrop-filter:blur(14px)}
+  .months button{border:0;background:transparent;color:var(--soft);font-family:var(--sans);font-size:13px;font-weight:700;padding:7px 10px;border-radius:9px;cursor:pointer}
+  .months button:hover{color:var(--ink)}
+  .months button.on{background:rgba(255,255,255,.1);color:#fff}
+  .months .play{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;margin-right:4px;color:#fff;cursor:pointer}
+  .months .play.on{background:var(--golden);color:#1a1204}
+  .tip{position:fixed;z-index:9;pointer-events:none;transform:translate(-50%,-140%);background:#0c1424;border:1px solid var(--hair);border-radius:11px;padding:8px 12px;opacity:0;transition:opacity .1s;white-space:nowrap;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+  .tip.on{opacity:1}.tip .t{font-size:13.5px;font-weight:700}.tip .s{font-size:12px;font-weight:700;margin-top:2px}
+  .loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:8;color:var(--soft);font-size:14px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="space"></div>
+<canvas id="stars"></canvas>
+<canvas id="gl"></canvas>
+<canvas id="ov"></canvas>
+<div class="top"><div class="ey">World View · WebGL · real climate data</div><h1>Where's it golden — for you</h1><p>Every place tinted by how good it'd feel outside there this month, from real climate normals scored to your comfort. Drag to spin · click a place.</p></div>
+<div class="legend"><span class="grad"></span>worse → better</div>
+<aside class="best"><h2 id="bestTitle">Best places · this month</h2><div id="bestList"></div></aside>
+<div class="months" id="months"></div>
+<div class="tip" id="tip"><div class="t" id="tipT"></div><div class="s" id="tipS"></div></div>
+<div class="loading" id="loading">Loading climate grid…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script>
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const BANDS=[[9,[216,154,27],'Golden'],[8,[36,138,77],'Great'],[7,[72,168,108],'Good'],[5,[140,134,116],'Decent'],[3,[217,93,56],'Poor'],[-1,[184,58,44],'Bad']];
+const colOf=s=>{for(const b of BANDS)if(s>=b[0])return b[1];return BANDS[5][1]};
+const bandOf=s=>{for(const b of BANDS)if(s>=b[0])return b[2];return 'Bad'};
+const rgbCss=c=>`rgb(${c[0]},${c[1]},${c[2]})`;
+const PROFILE={ideal:74,heat:0.5,cold:0.5,sun:0.7,mug:0.75,rainTol:0.3};
+
+const CITIES=[["New York",40.7,-74.0],["Los Angeles",34.0,-118.2],["Chicago",41.9,-87.6],["Mexico City",19.4,-99.1],["Vancouver",49.3,-123.1],["Miami",25.8,-80.2],["Denver",39.7,-105.0],["Havana",23.1,-82.4],["Phoenix",33.4,-112.1],["Toronto",43.7,-79.4],["San Francisco",37.8,-122.4],["Sao Paulo",-23.5,-46.6],["Rio de Janeiro",-22.9,-43.2],["Buenos Aires",-34.6,-58.4],["Lima",-12.0,-77.0],["Bogota",4.7,-74.1],["Santiago",-33.4,-70.6],["London",51.5,-0.1],["Paris",48.9,2.4],["Berlin",52.5,13.4],["Madrid",40.4,-3.7],["Rome",41.9,12.5],["Moscow",55.8,37.6],["Istanbul",41.0,28.9],["Barcelona",41.4,2.2],["Lisbon",38.7,-9.1],["Athens",38.0,23.7],["Stockholm",59.3,18.1],["Reykjavik",64.1,-21.9],["Cairo",30.0,31.2],["Lagos",6.5,3.4],["Johannesburg",-26.2,28.0],["Nairobi",-1.3,36.8],["Casablanca",33.6,-7.6],["Cape Town",-33.9,18.4],["Marrakesh",31.6,-8.0],["Dubai",25.2,55.3],["Riyadh",24.7,46.7],["Tehran",35.7,51.4],["Tel Aviv",32.1,34.8],["Tokyo",35.7,139.7],["Beijing",39.9,116.4],["Shanghai",31.2,121.5],["Delhi",28.6,77.2],["Mumbai",19.1,72.9],["Bangkok",13.8,100.5],["Singapore",1.35,103.8],["Hong Kong",22.3,114.2],["Seoul",37.6,127.0],["Jakarta",-6.2,106.8],["Kuala Lumpur",3.1,101.7],["Bengaluru",13.0,77.6],["Kathmandu",27.7,85.3],["Sydney",-33.9,151.2],["Melbourne",-37.8,145.0],["Perth",-31.95,115.9],["Auckland",-36.8,174.8],["Honolulu",21.3,-157.8]];
+
+let META,T,RH,CL,PR,scoresByMonth=[],cityScore=[];
+function dewF(tC,rh){const b=17.62,c=243.12,g=Math.log(Math.max(1,rh)/100)+b*tC/(c+tC);return (c*g/(b-g))*9/5+32;}
+function scoreClimate(tC,rh,cloudPct,precip){
+  if(tC<=-90)return NaN;
+  const tF=tC*9/5+32,dF=dewF(tC,rh),cloud=Math.max(0,Math.min(1,cloudPct/100));
+  const dT=tF-PROFILE.ideal,w=dT>=0?12*(0.7+0.9*PROFILE.heat):14*(0.7+0.9*PROFILE.cold);
+  const temp=Math.exp(-Math.pow(dT/w,2));
+  const sun=1-PROFILE.sun*Math.pow(cloud,1.4);
+  let mug=1;if(tF>=70){const raw=Math.max(0,Math.min(1,(dF-55)/17));mug=Math.max(0,1-raw*(0.35+0.8*PROFILE.mug));}
+  const wet=Math.min(1,precip/8),prec=1-wet*(1-PROFILE.rainTol);
+  const s=(0.30*temp+0.25*sun+0.20*mug+0.18*prec)/0.93*10;
+  return Math.max(0.4,Math.min(9.9,s));
+}
+function cellIndex(lat,lon){const r=Math.round((lat-META.latMin)/META.step),c=Math.round((lon-META.lonMin)/META.step);if(r<0||r>=META.rows||c<0||c>=META.cols)return -1;return r*META.cols+c;}
+function sampleScore(lat,lon,m){const i=cellIndex(lat,lon);if(i<0)return NaN;return scoresByMonth[m][i];}
+function bilinear(g,lat,lon){
+  const fr=(lat-META.latMin)/META.step,fc=(lon-META.lonMin)/META.step;
+  const r0=Math.floor(fr),c0=Math.floor(fc),tr=fr-r0,tc=fc-c0;
+  const at=(r,c)=>{if(r<0||r>=META.rows)return NaN;const cc=((c%META.cols)+META.cols)%META.cols;return g[r*META.cols+cc];};
+  const v00=at(r0,c0),v01=at(r0,c0+1),v10=at(r0+1,c0),v11=at(r0+1,c0+1);
+  const vals=[v00,v01,v10,v11].filter(v=>!Number.isNaN(v));
+  if(!vals.length)return NaN;
+  if(vals.length<4)return vals.reduce((a,b)=>a+b,0)/vals.length;
+  return (v00*(1-tc)+v01*tc)*(1-tr)+(v10*(1-tc)+v11*tc)*tr;
+}
+
+function buildScores(){
+  const N=META.rows*META.cols;
+  for(let m=0;m<12;m++){
+    const g=new Float32Array(N);
+    for(let i=0;i<N;i++){const b=i*12+m;g[i]=scoreClimate(T[b]/META.scale.t,RH[b]/META.scale.rh,CL[b]/META.scale.cloud,PR[b]/META.scale.precip);}
+    for(let pass=0;pass<6;pass++){
+      const src=g.slice();
+      for(let r=0;r<META.rows;r++)for(let c=0;c<META.cols;c++){const i=r*META.cols+c;if(!Number.isNaN(src[i]))continue;let sum=0,n=0;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const rr=r+dr,cc=(c+dc+META.cols)%META.cols;if(rr<0||rr>=META.rows)continue;const v=src[rr*META.cols+cc];if(!Number.isNaN(v)){sum+=v;n++;}}if(n)g[i]=sum/n;}
+    }
+    scoresByMonth[m]=g;
+  }
+  cityScore=CITIES.map(c=>MONTHS.map((_,m)=>{let s=sampleScore(c[1],c[2],m);if(Number.isNaN(s)){for(let rad=1;rad<=3&&Number.isNaN(s);rad++)for(let dr=-rad;dr<=rad&&Number.isNaN(s);dr++)for(let dc=-rad;dc<=rad&&Number.isNaN(s);dc++)s=sampleScore(c[1]+dr*META.step,c[2]+dc*META.step,m);}return Number.isNaN(s)?5:s;}));
+}
+
+const TW=1024,TH=512;
+let landMask,texCanvas=[],lonlat=[];
+function buildLandMask(land){
+  const cv=document.createElement('canvas');cv.width=TW;cv.height=TH;const c=cv.getContext('2d');
+  const proj=d3.geoEquirectangular().scale(TW/(2*Math.PI)).translate([TW/2,TH/2]);
+  const path=d3.geoPath(proj,c);c.fillStyle='#fff';c.beginPath();path(land);c.fill();
+  landMask=c.getImageData(0,0,TW,TH).data;
+}
+function buildTextures(){
+  lonlat=new Float32Array(TW*TH*2);
+  for(let m=0;m<12;m++){
+    const cv=document.createElement('canvas');cv.width=TW;cv.height=TH;const ctx=cv.getContext('2d');
+    const img=ctx.createImageData(TW,TH),data=img.data,g=scoresByMonth[m];
+    for(let y=0;y<TH;y++)for(let x=0;x<TW;x++){
+      const p=(y*TW+x);const li=p*4;
+      if(landMask[li+3]<40){data[li+3]=0;continue;}
+      const lon=(x/TW-0.5)*360,lat=90-(y/TH)*180;
+      let s=bilinear(g,lat,lon);
+      if(Number.isNaN(s)){data[li+3]=0;continue;}
+      const col=colOf(s);data[li]=col[0];data[li+1]=col[1];data[li+2]=col[2];data[li+3]=255;
+    }
+    ctx.putImageData(img,0,0);texCanvas[m]=cv;
+  }
+}
+
+let gl,prog,U={},month=new Date().getMonth(),tex=[],yaw=0.35,pitch=-0.3,dragging=false,lastX,lastY,focusRot=null;
+const glcv=document.getElementById('gl'),ov=document.getElementById('ov'),octx=ov.getContext('2d'),scv=document.getElementById('stars'),sctx=scv.getContext('2d');
+let W,H,cx,cy,R,DPR;
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;for(const c of [glcv,ov,scv]){c.width=W*DPR;c.height=H*DPR;c.style.width=W+'px';c.style.height=H+'px';}octx.setTransform(DPR,0,0,DPR,0,0);sctx.setTransform(DPR,0,0,DPR,0,0);cx=W/2;cy=H/2;R=Math.min(W,H)*0.40;drawStars();if(gl)gl.viewport(0,0,glcv.width,glcv.height);}
+function drawStars(){sctx.clearRect(0,0,W,H);for(let i=0;i<260;i++){const x=(Math.sin(i*127.1)*0.5+0.5)*W,y=(Math.sin(i*311.7+2)*0.5+0.5)*H,r=(Math.sin(i*74.7)*0.5+0.5)*1.3+0.2;sctx.globalAlpha=0.3+0.6*(Math.sin(i*13.3)*0.5+0.5);sctx.fillStyle='#cfe0ff';sctx.beginPath();sctx.arc(x,y,r,0,7);sctx.fill();}sctx.globalAlpha=1;}
+window.addEventListener('resize',resize);
+
+const VS=`attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}`;
+const FS=`precision highp float;uniform vec2 uRes;uniform vec2 uC;uniform float uR;uniform mat3 uInv;uniform sampler2D uTex;uniform vec3 uL;
+#define PI 3.14159265
+void main(){vec2 p=(gl_FragCoord.xy-uC)/uR;float d2=dot(p,p);if(d2>1.0){discard;}float z=sqrt(1.0-d2);vec3 pos=vec3(p.x,p.y,z);vec3 g=uInv*pos;float lon=atan(g.x,g.z);float lat=asin(clamp(g.y,-1.0,1.0));vec2 uv=vec2(lon/(2.0*PI)+0.5,0.5-lat/PI);vec4 tx=texture2D(uTex,uv);vec3 ocean=vec3(0.05,0.09,0.17);vec3 base=mix(ocean,tx.rgb,tx.a);float light=0.45+0.62*clamp(dot(pos,uL),0.0,1.0);vec3 col=base*light;float rim=pow(1.0-z,2.2);col+=vec3(0.11,0.17,0.30)*rim;gl_FragColor=vec4(col,1.0);}`;
+function initGL(){
+  gl=glcv.getContext('webgl',{antialias:true,premultipliedAlpha:false});
+  const mk=(t,s)=>{const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(sh);return sh;};
+  prog=gl.createProgram();gl.attachShader(prog,mk(gl.VERTEX_SHADER,VS));gl.attachShader(prog,mk(gl.FRAGMENT_SHADER,FS));gl.linkProgram(prog);gl.useProgram(prog);
+  const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+  const a=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+  for(const n of ['uRes','uC','uR','uInv','uTex','uL'])U[n]=gl.getUniformLocation(prog,n);
+  for(let m=0;m<12;m++){const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,texCanvas[m]);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);tex[m]=t;}
+}
+function rotMat(yaw,pitch){const cy1=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+  const Ry=[cy1,0,sy, 0,1,0, -sy,0,cy1];const Rx=[1,0,0, 0,cp,-sp, 0,sp,cp];
+  const R=[0,0,0,0,0,0,0,0,0];for(let i=0;i<3;i++)for(let j=0;j<3;j++){let s=0;for(let k=0;k<3;k++)s+=Rx[i*3+k]*Ry[k*3+j];R[i*3+j]=s;}return R;}
+function transpose(m){return [m[0],m[3],m[6],m[1],m[4],m[7],m[2],m[5],m[8]];}
+function project(lon,lat,R){const la=lat*Math.PI/180,lo=lon*Math.PI/180;const g=[Math.cos(la)*Math.sin(lo),Math.sin(la),Math.cos(la)*Math.cos(lo)];const v=[R[0]*g[0]+R[1]*g[1]+R[2]*g[2],R[3]*g[0]+R[4]*g[1]+R[5]*g[2],R[6]*g[0]+R[7]*g[1]+R[8]*g[2]];return {x:cx+v[0]*R_,y:cy-v[1]*R_,z:v[2]};}
+let R_,curProj=[];
+function render(){
+  requestAnimationFrame(render);
+  if(focusRot){let d0=focusRot[0]-yaw;while(d0>Math.PI)d0-=2*Math.PI;while(d0<-Math.PI)d0+=2*Math.PI;yaw+=d0*0.1;pitch+=(focusRot[1]-pitch)*0.1;if(Math.abs(d0)<0.005)focusRot=null;}
+  R_=R;const Rm=rotMat(yaw,pitch),inv=transpose(Rm);
+  gl.useProgram(prog);gl.uniform2f(U.uRes,glcv.width,glcv.height);gl.uniform2f(U.uC,cx*DPR,glcv.height-cy*DPR);gl.uniform1f(U.uR,R*DPR);gl.uniformMatrix3fv(U.uInv,false,new Float32Array(inv));
+  const l=[0.35,0.35,0.87];gl.uniform3f(U.uL,l[0],l[1],l[2]);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex[month]);gl.uniform1i(U.uTex,0);
+  gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,3);
+  octx.clearRect(0,0,W,H);curProj=[];
+  for(let i=0;i<CITIES.length;i++){const c=CITIES[i],p=project(c[2],c[1],Rm);if(p.z<=0.03)continue;const s=cityScore[i][month],col=colOf(s);octx.save();octx.shadowColor=rgbCss(col);octx.shadowBlur=8;octx.fillStyle='#fff';octx.beginPath();octx.arc(p.x,p.y,2.6,0,7);octx.fill();octx.restore();curProj.push({i,x:p.x,y:p.y,s,name:c[0]});}
+}
+ov.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;focusRot=null;ov.setPointerCapture(e.pointerId);});
+ov.addEventListener('pointerup',()=>dragging=false);
+ov.addEventListener('pointermove',e=>{if(dragging){yaw+=(e.clientX-lastX)*0.006;pitch-=(e.clientY-lastY)*0.006;pitch=Math.max(-1.3,Math.min(1.3,pitch));lastX=e.clientX;lastY=e.clientY;return;}let best=null,bd=15;for(const p of curProj){const d=Math.hypot(p.x-e.clientX,p.y-e.clientY);if(d<bd){bd=d;best=p;}}const tip=document.getElementById('tip');if(best){tip.classList.add('on');tip.style.left=best.x+'px';tip.style.top=best.y+'px';document.getElementById('tipT').textContent=best.name;const el=document.getElementById('tipS');el.textContent=best.s.toFixed(1)+' · '+bandOf(best.s);el.style.color=rgbCss(colOf(best.s));ov.style.cursor='pointer';}else{tip.classList.remove('on');ov.style.cursor=dragging?'grabbing':'grab';}});
+ov.addEventListener('click',e=>{let best=null,bd=18;for(const p of curProj){const d=Math.hypot(p.x-e.clientX,p.y-e.clientY);if(d<bd){bd=d;best=p;}}if(best){const c=CITIES[best.i];focusRot=[-c[2]*Math.PI/180,c[1]*Math.PI/180];}});
+function buildMonths(){const wrap=document.getElementById('months');wrap.innerHTML='';const play=document.createElement('div');play.className='play';play.id='play';play.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';play.onclick=togglePlay;wrap.appendChild(play);MONTHS.forEach((m,i)=>{const b=document.createElement('button');b.textContent=m;b.className=i===month?'on':'';b.onclick=()=>{month=i;buildMonths();buildBest();};wrap.appendChild(b);});}
+function buildBest(){document.getElementById('bestTitle').textContent='Best places · '+MONTHS[month];const order=CITIES.map((c,i)=>({i,s:cityScore[i][month]})).sort((a,b)=>b.s-a.s).slice(0,8);const list=document.getElementById('bestList');list.innerHTML='';order.forEach(o=>{const row=document.createElement('div');row.className='row';const col=rgbCss(colOf(o.s));row.innerHTML=`<span class="dot" style="background:${col};color:${col}"></span><span class="nm">${CITIES[o.i][0]}</span><span class="sc" style="color:${col}">${o.s.toFixed(1)}</span>`;row.onclick=()=>{const c=CITIES[o.i];focusRot=[-c[2]*Math.PI/180,c[1]*Math.PI/180];};list.appendChild(row);});}
+let playing=false,playT;function togglePlay(){playing=!playing;document.getElementById('play').classList.toggle('on',playing);if(playing)playT=setInterval(()=>{month=(month+1)%12;buildMonths();buildBest();},950);else clearInterval(playT);}
+
+async function init(){
+  resize();
+  const [nrm,world]=await Promise.all([
+    fetch('/world-normals.json').then(r=>r.json()),
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json').then(r=>r.json())
+  ]);
+  META=nrm.meta;T=nrm.t;RH=nrm.rh;CL=nrm.cloud;PR=nrm.precip;
+  const land=topojson.feature(world,world.objects.land);
+  buildScores();buildLandMask(land);buildTextures();initGL();
+  buildMonths();buildBest();document.getElementById('loading').style.display='none';render();
+}
+init().catch(e=>{document.getElementById('loading').textContent='Error: '+e;});
+</script>
+</body>
+</html>

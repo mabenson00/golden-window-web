@@ -14,6 +14,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.42;letter-spacing:-.006em}
+body.gw-lock{overflow:hidden}
 .serif{font-family:var(--serif)}
 a{color:inherit}
 .boot{max-width:640px;margin:0 auto;padding:80px 24px;text-align:center;color:var(--muted)}

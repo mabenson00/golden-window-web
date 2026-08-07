@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Window — Trip Planner · Warm Boutique</title>
+<style>
+  :root{
+    --golden:#D89A1B; --great:#248A4D; --good:#48A86C; --decent:#8C8674; --poor:#D95D38; --bad:#B83A2C;
+    --sand:#F0E8DC; --card:#FCF8F2; --card2:#F6F0E6;
+    --ink:#2B2620; --soft:#7C7264; --faint:#A99C89;
+    --hair:#E7DECF;
+    --terra:#C0693F; --terra-deep:#A5522F; --gold:#D89A1B; --gold-deep:#B07D10;
+    --sh:0 2px 6px rgba(120,88,48,.05),0 16px 40px rgba(120,88,48,.10);
+    --sh-sm:0 1px 3px rgba(120,88,48,.06),0 8px 20px rgba(120,88,48,.07);
+    --round:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--sand);color:var(--ink)}
+  body{font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.45;
+    background-image:radial-gradient(120% 70% at 85% -10%, #F7EEDD 0%, rgba(247,238,221,0) 55%)}
+  .round{font-family:var(--round)}
+  .tnum{font-variant-numeric:tabular-nums}
+  .wrap{max-width:1160px;margin:0 auto;padding:26px 34px 60px}
+
+  /* Top */
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .glyph{width:34px;height:34px}
+  .brand .name{font-family:var(--round);font-size:19px;font-weight:700;letter-spacing:.005em}
+  .change{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--terra-deep);
+    text-decoration:none;background:var(--card);border:1px solid var(--hair);border-radius:999px;padding:9px 16px;box-shadow:var(--sh-sm)}
+  .change:hover{border-color:var(--terra);color:var(--terra)}
+
+  /* Place + months */
+  .place{font-family:var(--round);font-size:26px;font-weight:700;letter-spacing:-.005em;margin-bottom:16px}
+  .months{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px}
+  .mo{font-size:13.5px;font-weight:600;color:var(--soft);background:var(--card);border:1px solid var(--hair);
+    border-radius:999px;padding:9px 16px;cursor:pointer;box-shadow:var(--sh-sm)}
+  .mo:hover{border-color:var(--faint)}
+  .mo.on{color:#fff;background:linear-gradient(135deg,var(--terra),var(--terra-deep));border-color:transparent;
+    box-shadow:0 6px 16px rgba(165,82,47,.28)}
+
+  .card{background:var(--card);border:1px solid var(--hair);border-radius:28px;padding:28px 30px;box-shadow:var(--sh)}
+  .sk{font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+  .slab{font-family:var(--round);font-size:20px;font-weight:700;letter-spacing:-.01em}
+
+  /* Hero */
+  .hero{display:grid;grid-template-columns:280px 1fr;gap:40px;align-items:center;margin-bottom:22px}
+  .gauge{position:relative;width:220px;height:220px;margin:0 auto}
+  .gauge svg{width:220px;height:220px;display:block}
+  .gauge .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge .gnum{font-family:var(--round);font-size:64px;font-weight:800;line-height:1;letter-spacing:-.03em;color:var(--ink)}
+  .gauge .gof{font-size:13px;font-weight:700;color:var(--faint);margin-top:2px}
+  .hero-info .eyebrow{font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:10px}
+  .verdict-row{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .verdict{font-family:var(--round);font-size:46px;font-weight:800;letter-spacing:-.02em;color:var(--good);line-height:1}
+  .tag{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--soft);
+    background:var(--card2);border:1px solid var(--hair);border-radius:999px;padding:6px 11px}
+  .character{font-size:21px;font-weight:600;color:var(--ink);margin:8px 0 20px;letter-spacing:-.005em}
+  .hero-facts{display:flex;gap:14px;flex-wrap:wrap}
+  .fchip{background:var(--card2);border-radius:16px;padding:13px 18px}
+  .fchip .fk{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+  .fchip .fv{font-size:14.5px;font-weight:700;color:var(--ink)}
+
+  .grid{display:grid;gap:20px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+  /* Calendar */
+  .headline{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  .legend{display:flex;align-items:center;gap:14px;font-size:11.5px;font-weight:600;color:var(--soft)}
+  .legend .lg{display:inline-flex;align-items:center;gap:6px}
+  .legend .sw{width:20px;height:10px;border-radius:4px;display:inline-block}
+  .dowrow{display:grid;grid-template-columns:repeat(7,1fr);gap:9px;margin-bottom:9px}
+  .dow{text-align:center;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .pcal{display:grid;grid-template-columns:repeat(7,1fr);gap:9px}
+  .pcell{aspect-ratio:1.16/1;border-radius:16px;padding:10px 11px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+  .pcell .pd{font-size:11px;font-weight:700;color:var(--soft)}
+  .pcell .ps{font-family:var(--round);font-size:22px;font-weight:800;align-self:flex-end;line-height:1;letter-spacing:-.02em}
+  .pcell.sweet{box-shadow:0 0 0 2px var(--gold),0 6px 16px rgba(214,154,27,.22)}
+  .pcell.sweet::after{content:"";position:absolute;top:9px;right:9px;width:6px;height:6px;border-radius:50%;background:var(--gold)}
+  .cal-note{font-size:15px;color:var(--soft);margin-top:18px;line-height:1.5}
+  .cal-note b{color:var(--gold-deep);font-weight:700}
+
+  /* Odds — segmented bar */
+  .oddsbar{display:flex;height:46px;border-radius:14px;overflow:hidden;margin:20px 0 16px;box-shadow:inset 0 0 0 1px rgba(120,88,48,.06)}
+  .oseg{display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--round);font-size:16px;font-weight:800}
+  .okey{display:flex;flex-wrap:wrap;gap:14px 20px;margin-bottom:14px}
+  .okey .ok{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--soft)}
+  .okey .ok .d{width:11px;height:11px;border-radius:4px}
+  .okey .ok b{font-family:var(--round);font-weight:800;color:var(--ink)}
+  .okey .ok.zero{opacity:.5}
+  .psum{font-size:15px;color:var(--soft);line-height:1.55}
+  .psum b{color:var(--ink);font-weight:700}
+
+  /* Expect */
+  .exprow{display:flex;align-items:center;gap:13px;padding:14px 0;border-top:1px solid var(--hair)}
+  .exprow:first-of-type{border-top:0}
+  .exprow .ic{width:19px;height:19px;color:var(--gold-deep);flex:none}
+  .exprow .lab{font-size:14.5px;color:var(--soft);font-weight:500}
+  .exprow .val{margin-left:auto;font-family:var(--round);font-size:18px;font-weight:800;display:flex;align-items:center;gap:9px;text-align:right}
+  .exprow .val .sub{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--faint)}
+  .exprow .dot{width:10px;height:10px;border-radius:50%;flex:none}
+
+  /* Year ridge */
+  .ridge{width:100%;margin:16px 0 14px}
+  .ridge svg{width:100%;height:auto;display:block;overflow:visible}
+  .year-note{font-size:15px;color:var(--soft);line-height:1.5}
+  .year-note b{color:var(--gold-deep);font-weight:700}
+
+  /* Heads up */
+  .heads{display:flex;gap:18px;align-items:center;background:var(--card2);border-color:transparent}
+  .heads .hicon{width:44px;height:44px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;color:var(--gold-deep);flex:none;box-shadow:var(--sh-sm)}
+  .heads .hk{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:4px}
+  .heads p{font-size:16px;color:var(--ink);line-height:1.5;font-weight:500}
+  .heads p b{font-weight:700}
+
+  .foot{text-align:center;font-size:13px;color:var(--faint);padding-top:24px}
+
+  @media (max-width:900px){
+    .wrap{padding:22px}
+    .hero{grid-template-columns:1fr;gap:24px;text-align:center}
+    .gauge{margin:0 auto}
+    .hero-facts,.verdict-row{justify-content:center}
+    .two{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <svg class="glyph" viewBox="0 0 40 40" fill="none">
+        <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F2C24E"/><stop offset="1" stop-color="#D89A1B"/></linearGradient></defs>
+        <circle cx="20" cy="20" r="9" fill="url(#g1)"/>
+        <g stroke="#C0693F" stroke-width="2" stroke-linecap="round"><path d="M20 4v4M20 32v4M4 20h4M32 20h4"/></g>
+      </svg>
+      <span class="name round">Golden Window</span>
+    </div>
+    <a class="change" href="#">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Change place
+    </a>
+  </div>
+
+  <div class="place round">Barcelona, Catalonia, ES</div>
+  <div class="months">
+    <span class="mo">Jan</span><span class="mo">Feb</span><span class="mo">Mar</span><span class="mo">Apr</span>
+    <span class="mo">May</span><span class="mo">Jun</span><span class="mo">Jul</span><span class="mo">Aug</span>
+    <span class="mo on">Sep</span><span class="mo">Oct</span><span class="mo">Nov</span><span class="mo">Dec</span>
+  </div>
+
+  <!-- Hero -->
+  <section class="card hero">
+    <div class="gauge">
+      <svg viewBox="0 0 220 220">
+        <defs>
+          <linearGradient id="gg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#F2C24E"/><stop offset="0.55" stop-color="#D89A1B"/><stop offset="1" stop-color="#48A86C"/>
+          </linearGradient>
+        </defs>
+        <g transform="rotate(135 110 110)">
+          <circle cx="110" cy="110" r="86" fill="none" stroke="#EBE1D1" stroke-width="16" stroke-linecap="round"
+            stroke-dasharray="405.3 135.1"/>
+          <circle cx="110" cy="110" r="86" fill="none" stroke="url(#gg)" stroke-width="16" stroke-linecap="round"
+            stroke-dasharray="316.1 224.3"/>
+        </g>
+      </svg>
+      <div class="center">
+        <div class="gnum round tnum">7.8</div>
+        <div class="gof">out of 10</div>
+      </div>
+    </div>
+    <div class="hero-info">
+      <div class="eyebrow">Typical September · for you</div>
+      <div class="verdict-row"><span class="verdict round">Good</span><span class="tag">Typical</span></div>
+      <p class="character round">Comfortable and hazy sun.</p>
+      <div class="hero-facts">
+        <div class="fchip"><div class="fk">Usual range</div><div class="fv tnum">6.8 – 8.8 · Decent to Great</div></div>
+        <div class="fchip"><div class="fk">Based on</div><div class="fv tnum">6 Septembers · 2019–2024</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid">
+
+    <!-- Calendar -->
+    <section class="card">
+      <div class="headline">
+        <div><div class="sk">The centerpiece</div><div class="slab round">Day by day — when to go</div></div>
+        <div class="legend">
+          <span class="lg"><span class="sw" style="background:color-mix(in srgb,var(--great) 26%,var(--card))"></span>Great</span>
+          <span class="lg"><span class="sw" style="background:color-mix(in srgb,var(--good) 20%,var(--card))"></span>Good</span>
+          <span class="lg"><span class="sw" style="background:color-mix(in srgb,var(--decent) 20%,var(--card))"></span>Decent</span>
+          <span class="lg"><span class="sw" style="background:transparent;box-shadow:0 0 0 2px var(--gold)"></span>Sweet spot</span>
+        </div>
+      </div>
+      <div class="dowrow">
+        <span class="dow">Mon</span><span class="dow">Tue</span><span class="dow">Wed</span><span class="dow">Thu</span>
+        <span class="dow">Fri</span><span class="dow">Sat</span><span class="dow">Sun</span>
+      </div>
+      <div class="pcal" id="cal"></div>
+      <p class="cal-note"><b>Sep 3–14 is your sweet spot</b> — the best stretch of the month for you.</p>
+    </section>
+
+    <div class="two">
+      <!-- Odds -->
+      <section class="card">
+        <div class="sk">Reading the month</div><div class="slab round">What are the odds</div>
+        <div class="oddsbar" id="oddsbar"></div>
+        <div class="okey" id="okey"></div>
+        <p class="psum"><b>About 9 in 10 days are Good or better.</b> The typical day lands 6.8–8.8.</p>
+      </section>
+
+      <!-- Expect -->
+      <section class="card">
+        <div class="sk">The feel of it</div><div class="slab round">What to expect</div>
+        <div style="margin-top:12px">
+          <div class="exprow">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+            <span class="lab">Feels-like high / low</span>
+            <span class="val tnum">79° / 66°</span>
+          </div>
+          <div class="exprow">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            <span class="lab">Sun</span>
+            <span class="val" style="color:var(--good)"><span class="dot" style="background:var(--good)"></span>Sun and clouds</span>
+          </div>
+          <div class="exprow">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>
+            <span class="lab">Mugginess</span>
+            <span class="val" style="color:var(--decent)"><span class="dot" style="background:var(--decent)"></span>Humid afternoons</span>
+          </div>
+          <div class="exprow">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 13v6M12 15v6M8 13v6M20 16.6A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 15"/></svg>
+            <span class="lab">Rain</span>
+            <span class="val" style="color:var(--good)"><span class="dot" style="background:var(--good)"></span>~6 days <span class="sub">· 5 soaking</span></span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Year ridge -->
+    <section class="card">
+      <div class="sk">The wider view</div><div class="slab round">Best months here — the whole year</div>
+      <div class="ridge" id="ridge"></div>
+      <p class="year-note">September ranks <b>#4 of 12</b> here — one of your best bets. Tap a month to switch.</p>
+    </section>
+
+    <!-- Heads up -->
+    <section class="card heads">
+      <div class="hicon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+      <div><div class="hk">Heads up</div><p>Nothing extreme — <b>no dangerous heat or cold in 6 years.</b> The hottest it ever felt was 94°.</p></div>
+    </section>
+
+    <div class="foot">Typical values from history — not a forecast. Plan the fine detail closer to your dates.</div>
+  </div>
+</div>
+
+<script>
+  const BAND={golden:'#D89A1B',great:'#248A4D',good:'#48A86C',decent:'#8C8674',poor:'#D95D38',bad:'#B83A2C'};
+  const band=v=>v>=9?'golden':v>=8?'great':v>=7?'good':v>=5?'decent':v>=3?'poor':'bad';
+
+  // Calendar
+  const days=[8.1,7.9,7.8,8.2,8.3,8.0,8.1,7.6,7.5,7.6,8.1,7.6,8.1,8.0,6.8,8.0,7.8,7.3,7.9,7.6,7.0,7.9,7.7,7.8,7.7,8.1,8.1,7.9,7.9,7.8];
+  const sweetA=3,sweetB=14;
+  document.getElementById('cal').innerHTML=days.map((v,i)=>{
+    const d=i+1,b=band(v),sweet=d>=sweetA&&d<=sweetB;
+    const t=Math.round(Math.max(0,Math.min(1,(v-6)/2.4))*18+9);
+    return `<div class="pcell${sweet?' sweet':''}" style="background:color-mix(in srgb, ${BAND[b]} ${t}%, var(--card))"><span class="pd">${d}</span><span class="ps" style="color:${BAND[b]}">${v.toFixed(1)}</span></div>`;
+  }).join('');
+
+  // Odds — stacked segmented bar
+  const odds=[['golden','Golden',2],['great','Great',13],['good','Good',12],['decent','Decent',4],['poor','Poor',0],['bad','Bad',0]];
+  const total=odds.reduce((s,o)=>s+o[2],0);
+  document.getElementById('oddsbar').innerHTML=odds.filter(o=>o[2]>0).map(([k,l,c])=>
+    `<div class="oseg" style="flex:${c};background:linear-gradient(180deg, color-mix(in srgb,#fff 16%,${BAND[k]}), ${BAND[k]})" title="${l}: ${c}">${c}</div>`
+  ).join('');
+  document.getElementById('okey').innerHTML=odds.map(([k,l,c])=>
+    `<span class="ok${c===0?' zero':''}"><span class="d" style="background:${BAND[k]}"></span>${l} <b>${c}</b></span>`
+  ).join('');
+
+  // Year ridge / area chart
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const yr=[6.2,6.0,6.2,6.3,7.2,8.2,8.7,8.5,7.8,7.0,6.3,6.4];
+  const selI=8;
+  const W=1080,H=260,padX=44,padT=44,padB=64;
+  const plotW=W-padX*2, yTop=padT, yBot=H-padB;
+  const lo=Math.min(...yr)-0.6, hi=Math.max(...yr)+0.4;
+  const X=i=>padX+i*(plotW/11);
+  const Y=v=>yBot-(v-lo)/(hi-lo)*(yBot-yTop);
+  const pts=yr.map((v,i)=>[X(i),Y(v)]);
+  let line=`M ${pts[0][0]} ${pts[0][1]}`;
+  for(let i=1;i<pts.length;i++){const [x0,y0]=pts[i-1],[x1,y1]=pts[i];const mx=(x0+x1)/2;line+=` C ${mx} ${y0}, ${mx} ${y1}, ${x1} ${y1}`;}
+  const area=`${line} L ${pts[11][0]} ${yBot} L ${pts[0][0]} ${yBot} Z`;
+  const dots=pts.map((p,i)=>{
+    const b=band(yr[i]),sel=i===selI;const r=sel?7:4.5;
+    return `<circle cx="${p[0]}" cy="${p[1]}" r="${r}" fill="${sel?BAND[b]:'#fff'}" stroke="${BAND[b]}" stroke-width="${sel?3:2.5}"/>`;
+  }).join('');
+  const vlabs=pts.map((p,i)=>{
+    const sel=i===selI;
+    return `<text x="${p[0]}" y="${p[1]-15}" text-anchor="middle" font-family="ui-rounded,-apple-system,sans-serif" font-size="${sel?15:12.5}" font-weight="${sel?800:700}" fill="${sel?'#2B2620':'#A99C89'}">${yr[i].toFixed(1)}</text>`;
+  }).join('');
+  const mlabs=pts.map((p,i)=>{
+    const sel=i===selI;
+    return `<text x="${p[0]}" y="${yBot+30}" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="12.5" font-weight="${sel?800:600}" fill="${sel?'#C0693F':'#A99C89'}">${mo[i]}</text>`;
+  }).join('');
+  document.getElementById('ridge').innerHTML=`
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="ridgeFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#D89A1B" stop-opacity="0.24"/>
+          <stop offset="0.55" stop-color="#D89A1B" stop-opacity="0.08"/>
+          <stop offset="1" stop-color="#D89A1B" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="ridgeLine" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#8C8674"/><stop offset="0.45" stop-color="#D89A1B"/>
+          <stop offset="0.62" stop-color="#48A86C"/><stop offset="1" stop-color="#8C8674"/>
+        </linearGradient>
+      </defs>
+      <path d="${area}" fill="url(#ridgeFill)"/>
+      <line x1="${X(selI)}" y1="${yTop-6}" x2="${X(selI)}" y2="${yBot}" stroke="#E7DECF" stroke-width="1.5" stroke-dasharray="3 4"/>
+      <path d="${line}" fill="none" stroke="url(#ridgeLine)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}${vlabs}${mlabs}
+    </svg>`;
+</script>
+</body>
+</html>
