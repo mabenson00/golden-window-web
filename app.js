@@ -775,7 +775,6 @@ function planResults() {
     planYearLead(),
     el('div', { class: 't-rule' }),
     planMain(a),
-    planBottom(a),
     el('div', { class: 'footnote' }, ['Typical values from history — not a forecast. Plan the fine detail closer to your dates.']),
   ]);
 }

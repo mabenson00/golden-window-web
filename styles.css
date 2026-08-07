@@ -1,3 +1,5 @@
+@font-face{font-family:"Bricolage Grotesque";src:url(fonts/bricolage.woff2) format("woff2");font-weight:200 800;font-style:normal;font-display:swap}
+@font-face{font-family:"Fraunces";src:url(fonts/fraunces.woff2) format("woff2");font-weight:300 900;font-style:normal;font-display:swap}
 :root{
   --bg:#F6F8FC; --card:#FFFFFF; --card2:#EEF2F7; --ink:#131C29; --ink2:#2B3849; --muted:#586778; --faint:#93A1B2; --hair:rgba(19,28,41,.12); --hair2:rgba(19,28,41,.07);
   --golden:#D89A1B; --great:#248A4D; --good:#48A86C; --decent:#8C8674; --poor:#D95D38; --bad:#B83A2C;
@@ -7,8 +9,9 @@
   --stale:#8A6D1F; --stale-bg:#FAF3E2; --stale-border:#E7D6A9;
   --shadow:0 1px 2px rgba(19,28,41,.03),0 8px 24px rgba(19,28,41,.055);
   --shadow-lg:0 22px 54px rgba(19,28,41,.13);
-  --sans:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  --serif:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --sans:"Bricolage Grotesque",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --serif:"Fraunces","Iowan Old Style",Georgia,"Times New Roman",serif;
+  font-optical-sizing:auto;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
