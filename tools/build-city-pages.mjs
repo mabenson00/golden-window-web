@@ -3,7 +3,7 @@ import { climateComfort, dewPointF, band, sensibleDefault } from '../scoring.js'
 
 const ROOT = '/Users/michaelbenson/golden-window-web';
 const ORIGIN = 'https://thegoldenwindow.app';
-const STYLES_V = 52, SCORING_V = 44, CITYJS_V = 1;
+const STYLES_V = 52, SCORING_V = 44, CITYJS_V = 2;
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MSHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -92,7 +92,7 @@ function monthPage(city, lat, lon, mi, scores) {
     return `<a class="cp-mo${j === mi ? ' on' : ''}" href="/weather/${cs}/${mn.toLowerCase()}/"><span class="m">${MSHORT[j]}</span><span class="s c-${sj == null ? 'muted' : clsOf(sj)}">${sj == null ? '–' : sj.toFixed(1)}</span></a>`;
   }).join('');
   const near = nearest(lat, lon, 6).map(c => `<a href="/weather/${slug(c[0])}/${ms}/">${esc(c[0])} in ${monthName}</a>`).join('');
-  const data = JSON.stringify({ city, slug: cs, lat, lon, monthIndex: mi, monthName, normals: n });
+  const data = JSON.stringify({ city, slug: cs, lat, lon, monthIndex: mi, monthName, normals: n, allNormals: scores.map(x => x.n) });
   const ld = JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{ "@type": "Question", "name": `Is ${monthName} a good time to visit ${city}?`, "acceptedAnswer": { "@type": "Answer", "text": summary(city, monthName, n, s) } }] });
   const html = head(title, desc, canonical) + topbar() +
     `<nav class="cp-crumb"><a href="/weather/">Weather</a> · <a href="/weather/${cs}/">${esc(city)}</a> · ${monthName}</nav>
@@ -140,7 +140,9 @@ function cityHub(city, lat, lon, scores) {
 <p class="cp-lede">How good it typically feels to be outside in ${esc(city)} across the year, scored from long-term climate normals. The best months to visit are usually <b>${bestList}</b>. Tap a month for the detail.</p>
 <div class="cp-months">${rows}</div>
 <a class="cp-cta" href="/#/plan" onclick="try{localStorage.setItem('gw.planloc',JSON.stringify({lat:${lat},lon:${lon},name:'${esc(city).replace(/'/g, "\\'")}'}))}catch(e){}">See the full day-by-day plan for ${esc(city)} →</a>
-<div class="cp-sec cp-links"><h2>More cities</h2>${nearest(lat, lon, 8).map(c => `<a href="/weather/${slug(c[0])}/">${esc(c[0])}</a>`).join('')}</div>` + foot();
+<div class="cp-sec cp-links"><h2>More cities</h2>${nearest(lat, lon, 8).map(c => `<a href="/weather/${slug(c[0])}/">${esc(c[0])}</a>`).join('')}</div>
+<script id="gw-data" type="application/json">${JSON.stringify({ city, slug: cs, lat, lon, monthIndex: 0, normals: null, allNormals: scores.map(x => x.n) })}</script>
+<script type="module" src="/city-page.js?v=${CITYJS_V}"></script>` + foot();
   writePage(`${ROOT}/weather/${cs}/index.html`, html);
   urls.push(canonical);
 }
