@@ -1,4 +1,4 @@
-import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=44';
+import { fetchForecast, fetchHistoricalYears, fetchAlerts, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=45';
 import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=44';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -25,6 +25,7 @@ let forecast = null;
 let fetchedReal = 0;
 let stale = false;
 let loadError = null;
+let weatherAlerts = [];
 
 const $ = (s, r = document) => r.querySelector(s);
 function el(tag, attrs, kids) {
@@ -494,6 +495,7 @@ function viewToday(root) {
   if (isSafetyOverride()) return viewSafety(root, ev);
   const wrap = el('div', { class: 'wrap' });
   if (stale) wrap.append(staleBanner());
+  if (weatherAlerts.length) wrap.append(alertsBanner(weatherAlerts));
   const week = evaluateWeekCached();
   const d0 = new Date(forecast.days[0].hours[0].time);
   const dateStr = d0.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
@@ -852,6 +854,7 @@ function isSafetyOverride() {
 }
 function viewSafety(root, ev) {
   const wrap = el('div', { class: 'wrap' });
+  if (weatherAlerts.length) wrap.append(alertsBanner(weatherAlerts));
   const grid = el('div', { class: 'hero-grid' }, [
     el('section', { class: 'safety-card', html: `<div class="sk"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg> Severe weather nearby</div><div class="sbig">Not a good time to be outside</div><div class="ssub">${forecast.current.conditionText} with hazardous conditions right now. The usual score is set aside while it's dangerous — it returns once conditions ease.</div>` }),
     timelineCard(ev, { isToday: true, nowTime: forecast.current.time, nowIndex: nowIndexFor(ev) }),
@@ -863,6 +866,28 @@ function viewSafety(root, ev) {
 function staleBanner() {
   const hrs = Math.max(1, Math.round((Date.now() - fetchedReal) / 3600e3));
   return el('div', { class: 'banner stale', html: `<svg class="icon sm" viewBox="0 0 24 24" style="stroke:var(--stale)" fill="none"><path d="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5"/></svg> Showing weather from about ${hrs} hour${hrs > 1 ? 's' : ''} ago — couldn't refresh.` });
+}
+const ALERT_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>';
+const escH = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const alertSevClass = sev => (sev === 'Extreme' || sev === 'Severe') ? 'severe' : sev === 'Moderate' ? 'moderate' : 'minor';
+function fmtAlertTime(ms) { try { return new Date(ms).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } }
+function alertTiming(a) {
+  const now = Date.now();
+  if (a.onset && a.onset > now) return `From ${fmtAlertTime(a.onset)}`;
+  if (a.ends && a.ends > now) return `Until ${fmtAlertTime(a.ends)}`;
+  return 'In effect now';
+}
+function alertsBanner(alerts) {
+  const wrap = el('div', { class: 'alerts' });
+  alerts.slice(0, 4).forEach(a => {
+    const card = el('div', { class: `alert alert-${alertSevClass(a.severity)}` });
+    const desc = escH((a.description || '').replace(/\n{2,}/g, '\n').trim());
+    card.innerHTML = `<span class="al-ic">${ALERT_ICON}</span><div class="al-body"><div class="al-top"><span class="al-event">${escH(a.event)}</span><span class="al-when">${escH(alertTiming(a))}</span></div>${a.area ? `<div class="al-area">${escH(a.area)}</div>` : ''}${desc ? `<button class="al-toggle" type="button">Details</button><div class="al-desc" hidden>${desc}${a.instruction ? '<br><br><b>' + escH(a.instruction) + '</b>' : ''}</div>` : ''}<div class="al-src">${escH(a.sender)}</div></div>`;
+    const tog = card.querySelector('.al-toggle');
+    if (tog) tog.addEventListener('click', () => { const d = card.querySelector('.al-desc'); const open = !d.hidden; d.hidden = open; tog.textContent = open ? 'Details' : 'Hide'; });
+    wrap.append(card);
+  });
+  return wrap;
 }
 function footer() { return el('div', { class: 'foot', html: '<div class="foot-tag">Golden Window finds the best time to be outside today — a personal weather score for how good it is to be out, tuned to how you like it, not a generic forecast.</div>Weather by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · Built by <a href="https://github.com/mabenson00" target="_blank" rel="noopener">Michael Benson</a> · no account needed' }); }
 
@@ -979,6 +1004,12 @@ async function load() {
     else { forecast = null; loadError = e; }
   }
   route();
+  const key = `${roundCoord(loc.lat)},${roundCoord(loc.lon)}`;
+  weatherAlerts = [];
+  fetchAlerts(roundCoord(loc.lat), roundCoord(loc.lon)).then(a => {
+    if (key !== `${roundCoord((location || DEFAULT_LOC).lat)},${roundCoord((location || DEFAULT_LOC).lon)}`) return;
+    weatherAlerts = a; if (a.length) route();
+  }).catch(() => {});
 }
 
 function obProfile() {

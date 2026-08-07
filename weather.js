@@ -147,6 +147,31 @@ export async function fetchHistoricalYears(lat, lon, years) {
   return days;
 }
 
+const ALERT_SKIP = /excessive heat|heat advisory|heat warning|cold weather|extreme cold|wind chill|frost advisory|freeze warning|freeze watch/i;
+const ALERT_SEV_RANK = { Extreme: 0, Severe: 1, Moderate: 2, Minor: 3, Unknown: 4 };
+export async function fetchAlerts(lat, lon) {
+  try {
+    const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: { Accept: 'application/geo+json' } });
+    if (!res.ok) return [];
+    const j = await res.json();
+    const seen = new Set();
+    const out = [];
+    for (const f of (j.features || [])) {
+      const p = f.properties;
+      if (!p || !p.event || ALERT_SKIP.test(p.event) || seen.has(p.event)) continue;
+      seen.add(p.event);
+      out.push({
+        event: p.event, severity: p.severity || 'Unknown',
+        headline: p.headline || p.event, description: p.description || '', instruction: p.instruction || '',
+        onset: p.onset ? Date.parse(p.onset) : null, ends: (p.ends || p.expires) ? Date.parse(p.ends || p.expires) : null,
+        area: p.areaDesc || '', sender: p.senderName || 'National Weather Service',
+      });
+    }
+    out.sort((a, b) => (ALERT_SEV_RANK[a.severity] ?? 4) - (ALERT_SEV_RANK[b.severity] ?? 4));
+    return out;
+  } catch { return []; }
+}
+
 export async function geocode(query) {
   const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1`);
   if (!res.ok) throw new Error(`geocode ${res.status}`);
