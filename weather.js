@@ -26,10 +26,16 @@ export async function fetchForecast(lat, lon) {
     temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'mm',
     timezone: 'auto', forecast_days: '7',
   });
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+  const aqParams = new URLSearchParams({ latitude: lat, longitude: lon, hourly: 'us_aqi', timezone: 'auto', forecast_days: '7' });
+  const [res, aq] = await Promise.all([
+    fetch(`https://api.open-meteo.com/v1/forecast?${params}`),
+    fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${aqParams}`).then(r => r.ok ? r.json() : null).catch(() => null),
+  ]);
   if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
   const j = await res.json();
 
+  const aqiByIso = {};
+  if (aq && aq.hourly && aq.hourly.us_aqi) aq.hourly.time.forEach((iso, i) => { const v = aq.hourly.us_aqi[i]; if (v != null) aqiByIso[iso] = v; });
   const h = j.hourly;
   const hours = h.time.map((iso, i) => ({
     time: parseLocal(iso), dateKey: iso.slice(0, 10),
@@ -38,7 +44,7 @@ export async function fetchForecast(lat, lon) {
     cloud: (h.cloud_cover[i] ?? 0) / 100, precipProb: (h.precipitation_probability[i] ?? 0) / 100,
     precipMM: h.precipitation[i] ?? 0, weatherCode: h.weather_code[i],
     windMph: h.wind_speed_10m[i] ?? 0, windGustMph: h.wind_gusts_10m[i] ?? 0,
-    isDay: h.is_day[i] === 1, aqi: null, conditionText: conditionText(h.weather_code[i]),
+    isDay: h.is_day[i] === 1, aqi: aqiByIso[iso] ?? null, conditionText: conditionText(h.weather_code[i]),
   }));
 
   const dailyDays = j.daily.time.map((iso, i) => ({
@@ -62,7 +68,7 @@ export async function fetchForecast(lat, lon) {
     dewF: nearest.dewF, humidity: (cur.relative_humidity_2m ?? nearest.humidity ?? 0) / 100, cloud: (cur.cloud_cover ?? 0) / 100,
     precipProb: nearest.precipProb, precipMM: cur.precipitation ?? 0,
     weatherCode: cur.weather_code, windMph: cur.wind_speed_10m ?? 0, windGustMph: cur.wind_gusts_10m ?? 0,
-    isDay: cur.is_day === 1, aqi: null, conditionText: conditionText(cur.weather_code),
+    isDay: cur.is_day === 1, aqi: nearest.aqi ?? null, conditionText: conditionText(cur.weather_code),
   };
 
   return { updatedAt: curTime, current, days, latitude: lat, longitude: lon };

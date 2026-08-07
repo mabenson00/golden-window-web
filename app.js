@@ -1,4 +1,4 @@
-import { fetchForecast, fetchHistoricalYears, fetchAlerts, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=45';
+import { fetchForecast, fetchHistoricalYears, fetchAlerts, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=46';
 import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=44';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -65,6 +65,7 @@ function mvTemp(c) { if (c == null) return ['—', 'muted']; const col = compCls
 function mvClouds(frac, c) { const col = compCls(c); let t; if (frac < 0.20) t = 'Clear'; else if (frac < 0.50) t = 'Partly cloudy'; else if (frac < 0.80) t = 'Cloudy'; else t = 'Overcast'; return [t, col]; }
 function mvMug(c) { if (c == null) return ['—', 'muted']; const col = compCls(c); if (c >= 0.75) return ['Comfortable', col]; if (c >= 0.5) return ['Slightly humid', col]; if (c >= 0.3) return ['Muggy', col]; return ['Oppressive', col]; }
 function mvRain(prob, c) { if (prob <= 0.005) return ['None', 'muted']; const col = compCls(c); if (prob < 0.2) return ['Unlikely', col]; if (prob < 0.5) return ['Possible', col]; return ['Likely', col]; }
+function mvAir(c, aqi) { const col = c == null ? 'muted' : compCls(c); const t = aqi < 50 ? 'Good' : aqi < 100 ? 'Moderate' : aqi < 150 ? 'Unhealthy for sensitive' : aqi < 200 ? 'Unhealthy' : 'Very unhealthy'; return [t, col]; }
 function mvPrecip(type, prob, c) { if (type === 'none' || prob <= 0.005) return ['None', 'muted']; const col = compCls(c); const noun = type === 'snow' ? 'Snow' : ((type === 'mixed' || type === 'freezing') ? 'Wintry mix' : 'Rain'); const lk = prob < 0.2 ? 'unlikely' : (prob < 0.5 ? 'possible' : 'likely'); return [`${noun} ${lk}`, col]; }
 function mvWind(speed, c) { if (c == null) return ['—', 'muted']; const col = compCls(c); if (c >= 0.8) return ['Comfortable', col]; if (c >= 0.55) return ['Breezy', col]; if (c >= 0.3) return ['Windy', col]; return ['Strong wind', col]; }
 function hourVerdict(displayed) { if (displayed >= 8) return 'A great hour to be outside'; if (displayed >= 7) return 'A good hour to be outside'; if (displayed >= 5) return 'A decent hour to be outside'; if (displayed >= 3) return 'A poor hour to be outside'; return 'Not a good hour to be outside'; }
@@ -136,6 +137,7 @@ function metricRow(ev) {
     mk('Clouds', `${Math.round(raw.cloud * 100)}%`, mvClouds(raw.cloud, comps.sunSky)),
     comps.mugginess != null ? mk('Dew point', Ts(raw.dewF), mvMug(comps.mugginess)) : null,
     mk('Rain', `${Math.round(raw.precipProb * 100)}%`, mvRain(raw.precipProb, comps.precipitation)),
+    raw.aqi != null && raw.aqi >= 50 ? mk('Air quality', `AQI ${Math.round(raw.aqi)}`, mvAir(comps.airQuality, raw.aqi)) : null,
   ].filter(Boolean);
 }
 
@@ -204,7 +206,7 @@ function nowCharacter(ev) {
 }
 
 
-const MI = { 'Feels like': 'M14 14.8V5a2 2 0 10-4 0v9.8a4 4 0 104 0z', Clouds: 'M7 18a4 4 0 010-8 5 5 0 019.6-1.6A3.5 3.5 0 1117 18H7z', 'Dew point': 'M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z', Rain: 'M6 13a6 6 0 0111.7-2A4 4 0 1117 19H7' };
+const MI = { 'Feels like': 'M14 14.8V5a2 2 0 10-4 0v9.8a4 4 0 104 0z', Clouds: 'M7 18a4 4 0 010-8 5 5 0 019.6-1.6A3.5 3.5 0 1117 18H7z', 'Dew point': 'M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z', Rain: 'M6 13a6 6 0 0111.7-2A4 4 0 1117 19H7', 'Air quality': 'M4 9h12a2.5 2.5 0 1 0-2.5-2.5M4 15h15a2.5 2.5 0 1 1-2.5 2.5M4 12h8' };
 const metricIcon = k => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${MI[k] || MI.Clouds}"/></svg>`;
 
 function ringSVG(displayed, golden) {
