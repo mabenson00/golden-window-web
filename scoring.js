@@ -22,6 +22,7 @@ export const CONFIG = {
   characterMaterialFloor: 0.03, characterMaxClauses: 4, characterRainDayFraction: 0.25,
   summaryDryDewF: 55, summaryMuggyDewF: 68, summaryDryMinFeelsF: 68,
   breakdownSpoilerNeutralCeiling: 0.9,
+  climateDaytimeWarmthF: 0.0, climatePrecipWetRefMMday: 8.0,
   scoreDisplayDecimals: 1,
   bands: [
     { min: 9.0, label: 'Golden' }, { min: 8.0, label: 'Great' }, { min: 7.0, label: 'Good' },
@@ -103,6 +104,32 @@ function airQuality(aqi, c) {
 }
 function stalenessFactor(ageHours, c) {
   return clamp(1 - c.stalePenaltyPerHour * Math.max(0, ageHours), c.forecastConfidenceFloor, 1);
+}
+
+export function dewPointF(tempC, rh) {
+  const magnusB = 17.62, magnusC = 243.12;
+  const gamma = Math.log(clamp(rh, 1, 100) / 100) + magnusB * tempC / (magnusC + tempC);
+  return (magnusC * gamma / (magnusB - gamma)) * 9 / 5 + 32;
+}
+
+export function climateComfort(normals, profile, config = CONFIG) {
+  if (!normals || normals.tempC == null) return null;
+  const p = { ...sensibleDefault, ...profile }, c = config;
+  const apparentF = normals.tempC * 9 / 5 + 32 + c.climateDaytimeWarmthF;
+  const dewF = dewPointF(normals.tempC, normals.rh);
+  const temp = temperature(apparentF, p, c);
+  const cloud = cloudMatch(clamp01((normals.cloudPct ?? 0) / 100), p, c);
+  const mug = apparentF >= c.mugginessGateFeelsF ? mugginess(dewF, p, c) : null;
+  const wetness = clamp01((normals.precipMMday ?? 0) / c.climatePrecipWetRefMMday);
+  const precip = clamp01(1 - wetness * (1 - clamp01(p.rainTolerance)));
+  let weightedSum = 0, totalWeight = 0;
+  const add = (s, w) => { weightedSum += s * w; totalWeight += w; };
+  add(temp, c.weightTemperature * p.importanceTemperature);
+  add(cloud, c.weightSunSky * p.importanceSunSky);
+  if (mug != null) add(mug, c.weightMugginess * p.importanceMugginess);
+  add(precip, c.weightPrecipitation * p.importancePrecipitation);
+  const blended = totalWeight > 0 ? weightedSum / totalWeight : 0;
+  return clamp01(blended) * 10;
 }
 
 export function precipType(code) {

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Window — Week · Barcelona</title>
+<style>
+  :root{
+    --golden:#D89A1B; --great:#248A4D; --good:#48A86C; --decent:#8C8674; --poor:#D95D38; --bad:#B83A2C;
+    --paper:#F5EDDD; --paper2:#FBF6EC; --card:#FCF8F0;
+    --ink:#231B10; --ink2:#3B3120; --soft:#7A6B52; --faint:#A6957A;
+    --hair:rgba(74,56,28,.16); --hair2:rgba(74,56,28,.09);
+    --gold:#C08214; --gold-deep:#9C6A0E;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink)}
+  body{font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.45;
+    background-image:radial-gradient(120% 80% at 82% -8%, #FBE4C0 0%, rgba(251,228,192,0) 46%),
+      radial-gradient(90% 60% at 4% -6%, #F6E7CF 0%, rgba(246,231,207,0) 40%);
+    background-attachment:fixed}
+  .serif{font-family:var(--serif)}
+  .tnum{font-variant-numeric:tabular-nums}
+  .wrap{max-width:1200px;margin:0 auto;padding:26px 40px 60px}
+
+  /* Masthead / nav (shared) */
+  .mast{display:flex;align-items:center;gap:26px;padding-bottom:18px;border-bottom:1.5px solid var(--ink);margin-bottom:4px}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .glyph{width:32px;height:32px}
+  .brand .name{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:.01em}
+  .nav{display:flex;gap:4px;margin-left:8px}
+  .nav a{font-family:var(--serif);font-size:17px;color:var(--faint);text-decoration:none;padding:4px 4px 8px;position:relative;letter-spacing:.01em}
+  .nav a:hover{color:var(--ink2)}
+  .nav a.on{color:var(--ink);font-weight:600}
+  .nav a.on::after{content:"";position:absolute;left:2px;right:2px;bottom:0;height:2px;background:var(--gold)}
+  .grow{flex:1}
+  .placechip{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-decoration:none;color:inherit}
+  .placechip .pc-n{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2)}
+  .placechip .pc-c{font-size:11.5px;color:var(--faint);display:inline-flex;align-items:center;gap:5px}
+
+  .head{padding:22px 0 6px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .slab{font-family:var(--serif);font-size:30px;font-weight:600;color:var(--ink);letter-spacing:.005em;line-height:1.05}
+  .slab .k{display:block;font-family:var(--sans);font-size:11px;font-weight:800;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--gold-deep);margin-bottom:8px}
+  .scalekey{display:flex;align-items:center;gap:8px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .scalekey .grad{width:74px;height:7px;border-radius:4px;background:linear-gradient(90deg,var(--decent),var(--golden),var(--great))}
+
+  /* Trend chart */
+  .trend{margin:18px 0 8px}
+  .ridge-svg{width:100%;height:auto;display:block;overflow:visible}
+  .rl-grid{stroke:var(--hair2);stroke-width:1}
+  .rl-ax{fill:var(--faint);font-size:11px;font-weight:700;font-family:var(--sans)}
+  .rl-x{fill:var(--faint);font-size:12.5px;font-weight:700;font-family:var(--sans)}
+  .rl-x.em{fill:var(--ink);font-weight:800}
+  .rl-v{fill:var(--faint);font-size:13px;font-weight:700;font-family:var(--sans)}
+  .rl-v.em{fill:var(--ink);font-weight:800;font-size:15px;font-family:var(--serif)}
+  .trend-note{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink2);margin-top:6px}
+  .trend-note b{font-style:normal;font-weight:600;color:var(--gold-deep)}
+
+  .rule{height:1px;background:var(--hair);margin:24px 0 26px}
+
+  /* Day cards */
+  .week7{display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
+  .wday{text-decoration:none;color:inherit;border:1px solid var(--hair2);border-radius:14px;padding:16px 13px;text-align:center;
+    display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--card);position:relative;transition:transform .12s,border-color .12s}
+  .wday:hover{transform:translateY(-3px);border-color:var(--gold)}
+  .wday.today{border-color:var(--gold);background:color-mix(in srgb,var(--golden) 6%,var(--card))}
+  .wday.best{box-shadow:inset 0 0 0 1px var(--gold)}
+  .wtop{min-height:15px;font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-deep)}
+  .wname{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--ink2)}
+  .wglyph{width:34px;height:34px;color:var(--gold-deep);margin:4px 0 2px}
+  .wscore{font-family:var(--serif);font-size:38px;font-weight:600;line-height:1;letter-spacing:-.02em}
+  .wband{font-size:12.5px;font-weight:700;margin-top:1px}
+  .wspark{width:100%;height:26px;margin:8px 0 2px;overflow:visible}
+  .wwin{font-size:12.5px;font-weight:700;color:var(--ink2)}
+  .wchar{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--soft);line-height:1.35;min-height:34px;margin-top:2px}
+  .whl{font-size:12px;color:var(--faint);font-weight:600;margin-top:auto;padding-top:9px;border-top:1px solid var(--hair2);width:100%}
+
+  .foot{text-align:center;font-family:var(--serif);font-style:italic;font-size:14px;color:var(--faint);padding-top:26px;margin-top:34px;border-top:1px solid var(--hair2)}
+
+  @media (max-width:1000px){ .week7{grid-template-columns:repeat(4,1fr)} }
+  @media (max-width:900px){
+    .wrap{padding:22px}
+    .mast{flex-wrap:wrap;gap:14px}
+  }
+  @media (max-width:620px){ .week7{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mast">
+    <div class="brand">
+      <svg class="glyph" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="8.5" fill="#D89A1B"/>
+        <g stroke="#C08214" stroke-width="2" stroke-linecap="round"><path d="M20 3v5M20 32v5M3 20h5M32 20h5M8 8l3.5 3.5M28.5 28.5 32 32M32 8l-3.5 3.5M11.5 28.5 8 32"/></g>
+      </svg>
+      <span class="name">Golden Window</span>
+    </div>
+    <nav class="nav">
+      <a href="site-today.html">Today</a>
+      <a class="on" href="site-week.html">Week</a>
+      <a href="site-plan.html">Plan</a>
+    </nav>
+    <span class="grow"></span>
+    <a class="placechip" href="site-plan.html">
+      <span class="pc-n">Barcelona, Catalonia, ES</span>
+      <span class="pc-c"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Change place</span>
+    </a>
+  </div>
+
+  <div class="head">
+    <div class="slab serif"><span class="k">The next seven days · for you</span>Your week outside</div>
+    <div class="scalekey"><span class="grad"></span>worse → better</div>
+  </div>
+
+  <div class="trend"><div id="trend"></div></div>
+  <p class="trend-note serif"><b>Friday looks best</b> at 8.2 — bright and breezy. Every day this week lands Good or better.</p>
+
+  <div class="rule"></div>
+
+  <div class="week7" id="week7"></div>
+
+  <div class="foot">Click any day for its full hourly detail. A day with nothing good honestly says “No good window.”</div>
+</div>
+
+<script>
+  const BAND={golden:'#D89A1B',great:'#248A4D',good:'#48A86C',decent:'#8C8674',poor:'#D95D38',bad:'#B83A2C'};
+  const bandOf=v=>v>=9?'golden':v>=8?'great':v>=7?'good':v>=5?'decent':v>=3?'poor':'bad';
+  const bandWord=v=>v>=9?'Golden':v>=8?'Great':v>=7?'Good':v>=5?'Decent':v>=3?'Poor':'Bad';
+  function smoothPath(P){if(P.length<2)return P.length?`M${P[0].x},${P[0].y}`:'';let d=`M${P[0].x.toFixed(1)},${P[0].y.toFixed(1)}`;for(let i=0;i<P.length-1;i++){const p0=P[i-1]||P[i],p1=P[i],p2=P[i+1],p3=P[i+2]||p2;const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;d+=` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;}return d;}
+  function ridge(host,pts,opt){
+    const W=opt.W||1000,H=opt.H||220,padL=opt.padL??46,padR=opt.padR??26,padT=opt.padT??42,padB=opt.padB??44;
+    const lo=opt.lo,hi=opt.hi,n=pts.length,plotW=W-padL-padR,plotH=(H-padB)-padT;
+    const X=i=>padL+(n<=1?0:i/(n-1))*plotW, Y=v=>(H-padB)-(v-lo)/(hi-lo)*plotH;
+    const P=pts.map((p,i)=>({x:X(i),y:Y(p.score)}));
+    const line=smoothPath(P);
+    const area=`${line} L ${P[n-1].x.toFixed(1)} ${(H-padB)} L ${P[0].x.toFixed(1)} ${(H-padB)} Z`;
+    const stops=P.map((p,i)=>`<stop offset="${(((p.x-padL)/plotW)*100).toFixed(2)}%" stop-color="${BAND[bandOf(pts[i].score)]}"/>`).join('');
+    let grid='';for(let s=Math.ceil(lo);s<=Math.floor(hi);s++){const y=Y(s);grid+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" class="rl-grid"/><text x="${(padL-9)}" y="${(y+3.5).toFixed(1)}" text-anchor="end" class="rl-ax">${s}</text>`;}
+    let guides='';if(opt.marks)opt.marks.forEach(m=>guides+=`<line x1="${X(m.i).toFixed(1)}" y1="${(padT-6).toFixed(1)}" x2="${X(m.i).toFixed(1)}" y2="${(H-padB).toFixed(1)}" stroke="rgba(74,56,28,.28)" stroke-width="1.2" stroke-dasharray="3 4"/>`);
+    const emph=i=>opt.marks&&opt.marks.some(m=>m.i===i);
+    const dots=P.map((p,i)=>{const c=BAND[bandOf(pts[i].score)];return emph(i)?`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6.5" fill="${c}" stroke="#FBF6EC" stroke-width="2.6"/>`:`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.2" fill="#FBF6EC" stroke="${c}" stroke-width="2.3"/>`;}).join('');
+    let labels='';if(opt.allLabels)labels+=P.map((p,i)=>`<text x="${p.x.toFixed(1)}" y="${(p.y-15).toFixed(1)}" text-anchor="middle" class="rl-v${emph(i)?' em':''}">${pts[i].score.toFixed(1)}</text>`).join('');
+    const xl=pts.map((p,i)=>`<text x="${X(i).toFixed(1)}" y="${(H-padB+24).toFixed(1)}" text-anchor="middle" class="rl-x${emph(i)?' em':''}">${p.label}</text>`).join('');
+    host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" class="ridge-svg" role="img" aria-label="week trend"><defs>
+      <linearGradient id="strk-${host.id}" gradientUnits="userSpaceOnUse" x1="${padL}" y1="0" x2="${W-padR}" y2="0">${stops}</linearGradient>
+      <linearGradient id="fill-${host.id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D89A1B" stop-opacity=".22"/><stop offset="1" stop-color="#D89A1B" stop-opacity="0"/></linearGradient>
+      </defs>${grid}<path d="${area}" fill="url(#fill-${host.id})"/>${guides}<path d="${line}" fill="none" stroke="url(#strk-${host.id})" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>${dots}${labels}${xl}</svg>`;
+  }
+
+  const days=[
+    {name:'Monday',short:'Mon',score:8.1,char:'Warm and hazy sun',hi:82,lo:68,win:'out 8–11 AM',sky:'haze',today:true},
+    {name:'Tuesday',short:'Tue',score:7.9,char:'Sun and clouds',hi:81,lo:67,win:'out 9 AM–12 PM',sky:'suncloud'},
+    {name:'Wednesday',short:'Wed',score:7.6,char:'Muggy afternoon',hi:83,lo:70,win:'out 7–10 AM',sky:'suncloud'},
+    {name:'Thursday',short:'Thu',score:7.5,char:'Passing showers',hi:80,lo:69,win:'out 4–7 PM',sky:'rain'},
+    {name:'Friday',short:'Fri',score:8.2,char:'Bright and breezy',hi:79,lo:66,win:'out midday',sky:'sun',best:true},
+    {name:'Saturday',short:'Sat',score:8.1,char:'Sunny all day',hi:80,lo:66,win:'out all afternoon',sky:'sun'},
+    {name:'Sunday',short:'Sun',score:7.6,char:'Humid, hazy sun',hi:82,lo:69,win:'out early',sky:'haze'},
+  ];
+
+  ridge(document.getElementById('trend'),days.map(d=>({label:d.short,score:d.score})),
+    {W:1000,H:210,lo:7.0,hi:8.6,allLabels:true,marks:[{i:4}]});
+
+  const GL={
+    sun:'<circle cx="12" cy="12" r="4.4"/><path d="M12 2v2.4M12 19.6V22M3.5 3.5l1.7 1.7M18.8 18.8l1.7 1.7M2 12h2.4M19.6 12H22M3.5 20.5l1.7-1.7M18.8 5.2l1.7-1.7"/>',
+    haze:'<circle cx="12" cy="9.5" r="3.6"/><path d="M12 2.6v1.6M4.8 4.8l1.1 1.1M18.1 5.9l1.1-1.1M2.6 9.5h1.6M19.8 9.5h1.6"/><path d="M4 15.5h16M6 19h12"/>',
+    suncloud:'<circle cx="8.5" cy="8" r="3"/><path d="M8.5 1.8v1.4M3.4 3.4l1 1M13.6 4.4l1-1M1.8 8h1.4"/><path d="M17.5 20a4 4 0 0 0 0-8h-.6a5.5 5.5 0 0 0-10.3-.9"/><path d="M6 20h11.5" fill="none"/>',
+    rain:'<path d="M17.5 16a4.2 4.2 0 0 0 0-8.4h-.6A6 6 0 1 0 6 13.5"/><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5"/>',
+  };
+  function spark(score,seed){
+    const shape=[-.15,.25,.4,.25,-.05,-.5,-.75,-.55,-.2,.2,.45,.35,.05];
+    const amp=0.55, W=120,H=26;
+    const pts=shape.map((o,i)=>({label:'',score:Math.max(5.2,Math.min(9,score+o*amp+((seed*7+i)%3-1)*0.04))}));
+    const lo=Math.min(...pts.map(p=>p.score))-0.3, hi=Math.max(...pts.map(p=>p.score))+0.3;
+    const n=pts.length,X=i=>2+i/(n-1)*(W-4),Y=v=>H-2-(v-lo)/(hi-lo)*(H-4);
+    const P=pts.map((p,i)=>({x:X(i),y:Y(p.score)}));
+    const c=BAND[bandOf(score)];
+    return `<svg class="wspark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${smoothPath(P)}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/></svg>`;
+  }
+
+  document.getElementById('week7').innerHTML=days.map((d,i)=>{
+    const c=BAND[bandOf(d.score)];
+    const top=d.today?'Today':(d.best?'Best day':'&nbsp;');
+    return `<a class="wday${d.today?' today':''}${d.best?' best':''}" href="site-today.html">
+      <div class="wtop">${top}</div>
+      <div class="wname serif">${d.short}</div>
+      <svg class="wglyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${GL[d.sky]}</svg>
+      <div class="wscore serif" style="color:${c}">${d.score.toFixed(1)}</div>
+      <div class="wband" style="color:${c}">${bandWord(d.score)}</div>
+      ${spark(d.score,i)}
+      <div class="wwin">${d.win}</div>
+      <div class="wchar serif">“${d.char}”</div>
+      <div class="whl tnum">${d.hi}° / ${d.lo}°</div>
+    </a>`;
+  }).join('');
+</script>
+</body>
+</html>

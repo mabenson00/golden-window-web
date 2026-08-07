@@ -1,5 +1,5 @@
-import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=42';
-import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=42';
+import { fetchForecast, fetchHistoricalYears, geocode, geocodeList, roundCoord, conditionText } from './weather.js?v=43';
+import { evaluate, evaluateDay, scoreText, roundedScore, band, isGolden, sensibleDefault, precipType, CONFIG } from './scoring.js?v=43';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEFAULT_LOC = { lat: 40.71, lon: -74.01, name: 'New York, NY' };
@@ -51,6 +51,11 @@ const rangeShort = w => `${fmtShort(w.startTime)}–${fmtShort(w.endTime)}`;
 
 const bandCls = displayed => band(displayed).toLowerCase();
 const bandClsComfort = comfort => bandCls(comfort / 10);
+
+const NAV_ITEMS = [['Today', '#/today'], ['Week', '#/week'], ['Plan', '#/plan'], ['Explore', '#/explore'], ['Settings', '#/settings']];
+const hexToRgb = h => { h = (h || '').replace('#', ''); return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0]; };
+const comfortColors = () => ({ golden: hexToRgb(CSSV('--golden')), great: hexToRgb(CSSV('--great')), good: hexToRgb(CSSV('--good')), decent: hexToRgb(CSSV('--decent')), poor: hexToRgb(CSSV('--poor')), bad: hexToRgb(CSSV('--bad')) });
+let worldViewDispose = null, worldViewPending = false;
 const T = f => units === 'C' ? Math.round((f - 32) * 5 / 9) : Math.round(f);
 const Ts = f => `${T(f)}°`;
 
@@ -877,8 +882,8 @@ function topbar() {
   const bar = el('header', { class: 'topbar' });
   bar.append(el('a', { class: 'brand', href: '#/today', html: `<img src="icon.svg" alt=""><span class="name">Golden Window</span>` }));
   const nav = el('nav', { class: 'nav' });
-  [['Today', '#/today'], ['Week', '#/week'], ['Plan', '#/plan'], ['Settings', '#/settings']].forEach(([t, h]) => {
-    const active = (h === '#/today' && isTodayPath(path)) || (h === '#/week' && path.startsWith('#/week')) || (h === '#/plan' && path.startsWith('#/plan')) || (h === '#/settings' && path.startsWith('#/settings'));
+  NAV_ITEMS.forEach(([t, h]) => {
+    const active = (h === '#/today' && isTodayPath(path)) || (h === '#/week' && path.startsWith('#/week')) || (h === '#/plan' && path.startsWith('#/plan')) || (h === '#/explore' && path.startsWith('#/explore')) || (h === '#/settings' && path.startsWith('#/settings'));
     nav.append(el('a', { href: h, class: active ? 'on' : '' }, [t]));
   });
   bar.append(nav, el('span', { class: 'grow' }));
@@ -898,10 +903,33 @@ function locationHash() { return window.location.hash || '#/today'; }
 function isTodayPath(p) { return p === '' || p === '#/' || p === '#/today'; }
 function navigate(h) { if (window.location.hash === h) route(); else window.location.hash = h; }
 
+function viewExplore(root) {
+  const host = el('div', { class: 'explore-host' });
+  root.append(host);
+  worldViewPending = true;
+  import('./worldview.js?v=43').then(m => {
+    worldViewPending = false;
+    if (!locationHash().startsWith('#/explore') || worldViewDispose) return;
+    worldViewDispose = m.mountWorldView(host, {
+      profile,
+      colors: comfortColors(),
+      nav: NAV_ITEMS,
+      onPick: (loc) => { navigate('#/plan'); loadPlan(loc); },
+    });
+  }).catch(() => { worldViewPending = false; host.innerHTML = '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#9DB0CC;background:#05070d">Could not load World View.</div>'; });
+}
+
 function route() {
   const root = $('#root'); if (!root) return;
-  root.innerHTML = '';
   const path0 = locationHash();
+  if (path0.startsWith('#/explore')) {
+    if (worldViewDispose || worldViewPending) return;
+    root.innerHTML = ''; document.body.classList.add('gw-lock');
+    return viewExplore(root);
+  }
+  if (worldViewDispose) { worldViewDispose(); worldViewDispose = null; }
+  document.body.classList.remove('gw-lock');
+  root.innerHTML = '';
   if (path0.startsWith('#/plan')) { root.append(topbarSafe()); return viewPlan(root); }
   if (!forecast && loadError) { root.append(topbarSafe(), errorState()); return; }
   if (!forecast) { root.append(topbarSafe(), loadingState()); return; }
